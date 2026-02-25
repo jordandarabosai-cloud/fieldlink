@@ -105,6 +105,7 @@ export default function App() {
   const [snmpReceiverActive, setSnmpReceiverActive] = useState<boolean>(false);
   const [snmpTrapPort, setSnmpTrapPort] = useState<number>(1162);
   const [snmpTrapAddress, setSnmpTrapAddress] = useState<string>("0.0.0.0");
+  const [snmpTrapCommunity, setSnmpTrapCommunity] = useState<string>("public");
   const [snmpActionStatus, setSnmpActionStatus] = useState<string>("");
 
   const refreshPorts = async () => {
@@ -278,7 +279,7 @@ export default function App() {
   const handleSnmpConfigure = async () => {
     try {
       const result = await window.fieldlink.snmp.configure({
-        receiver: { port: snmpTrapPort, address: snmpTrapAddress },
+        receiver: { port: snmpTrapPort, address: snmpTrapAddress, community: snmpTrapCommunity },
       });
       setSnmpReceiverStatus(`Listening on ${result.address}:${result.port}`);
       setSnmpReceiverActive(true);
@@ -842,6 +843,10 @@ export default function App() {
                     value={snmpTrapPort}
                     onChange={(e) => setSnmpTrapPort(Number(e.target.value))}
                   />
+                </label>
+                <label className="field">
+                  Community
+                  <input value={snmpTrapCommunity} onChange={(e) => setSnmpTrapCommunity(e.target.value)} />
                 </label>
               </div>
               <div className="card-actions">

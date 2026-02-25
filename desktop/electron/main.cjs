@@ -11,7 +11,7 @@ let modbusQueue = Promise.resolve();
 const MODBUS_TIMEOUT_MS = 2000;
 
 let snmpReceiver = null;
-let snmpReceiverConfig = { port: 162, address: "0.0.0.0" };
+let snmpReceiverConfig = { port: 162, address: "0.0.0.0", communities: ["public"] };
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -81,15 +81,23 @@ function startSnmpReceiver(config) {
     snmpReceiver = null;
   }
 
+  const communityList = String(config.community || "public")
+    .split(/[\s,]+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
   snmpReceiverConfig = {
     port: Number(config.port) || 162,
     address: config.address || "0.0.0.0",
+    communities: communityList.length ? communityList : ["public"],
   };
 
   snmpReceiver = snmp.createReceiver(
     {
       port: snmpReceiverConfig.port,
       transport: "udp4",
+      address: snmpReceiverConfig.address,
+      includeAuthentication: true,
     },
     (error, msg) => {
       if (error) {
@@ -108,6 +116,9 @@ function startSnmpReceiver(config) {
       });
     }
   );
+
+  const authorizer = snmpReceiver.getAuthorizer();
+  snmpReceiverConfig.communities.forEach((community) => authorizer.addCommunity(community));
 }
 
 ipcMain.handle("serial:list", async () => {

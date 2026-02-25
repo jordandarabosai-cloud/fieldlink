@@ -17,7 +17,7 @@ declare global {
         writeMultiple: (options: { address: number; start: number; values: number[] }) => Promise<{ written: number }>;
       };
       snmp: {
-        configure: (options: { receiver: { port: number; address: string } }) => Promise<{ listening: boolean; port: number; address: string }>;
+        configure: (options: { receiver: { port: number; address: string; community?: string } }) => Promise<{ listening: boolean; port: number; address: string }>;
         get: (options: {
           host: string;
           port: number;
