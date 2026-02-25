@@ -48,6 +48,22 @@ declare global {
           };
           baseOid: string;
         }) => Promise<{ varbinds: Array<{ oid: string; type?: string; value?: unknown }> }>;
+        sendTrap: (options: {
+          host: string;
+          port: number;
+          version: "v1" | "v2c" | "v3";
+          community?: string;
+          v3?: {
+            user: string;
+            authProtocol?: string;
+            authKey?: string;
+            privProtocol?: string;
+            privKey?: string;
+            engineId?: string;
+          };
+          trapOid: string;
+          message?: string;
+        }) => Promise<{ success: boolean; error?: string }>;
         stopReceiver: () => Promise<{ listening: boolean }>;
         onTrap: (callback: (payload: { receivedAt: string; raw: unknown; varbinds: Array<{ oid: string; type?: string; value?: unknown }> }) => void) => void;
       };

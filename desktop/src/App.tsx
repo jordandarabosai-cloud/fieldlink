@@ -120,6 +120,11 @@ export default function App() {
   const [snmpTrapAddress, setSnmpTrapAddress] = useState<string>("0.0.0.0");
   const [snmpTrapCommunity, setSnmpTrapCommunity] = useState<string>("public");
   const [snmpActionStatus, setSnmpActionStatus] = useState<string>("");
+  const [snmpTrapTargetHost, setSnmpTrapTargetHost] = useState<string>("127.0.0.1");
+  const [snmpTrapTargetPort, setSnmpTrapTargetPort] = useState<number>(162);
+  const [snmpTrapOid, setSnmpTrapOid] = useState<string>("1.3.6.1.6.3.1.1.5.1");
+  const [snmpTrapMessage, setSnmpTrapMessage] = useState<string>("FieldLink test trap");
+  const [snmpTrapSendStatus, setSnmpTrapSendStatus] = useState<string>("");
   const [snmpCounterIfIndex, setSnmpCounterIfIndex] = useState<string>("1");
   const [snmpCounterInterval, setSnmpCounterInterval] = useState<number>(10000);
   const [snmpCounterThreshold, setSnmpCounterThreshold] = useState<number>(1);
@@ -395,6 +400,34 @@ export default function App() {
     }
   };
 
+
+  const handleSnmpSendTrap = async () => {
+    try {
+      setSnmpTrapSendStatus("Sending trap...");
+      const result = await window.fieldlink.snmp.sendTrap({
+        host: snmpTrapTargetHost,
+        port: snmpTrapTargetPort,
+        version: snmpVersion,
+        community: snmpCommunity,
+        v3: {
+          user: snmpV3User,
+          authProtocol: snmpV3AuthProtocol,
+          authKey: snmpV3AuthKey,
+          privProtocol: snmpV3PrivProtocol,
+          privKey: snmpV3PrivKey,
+        },
+        trapOid: snmpTrapOid,
+        message: snmpTrapMessage,
+      });
+      if (result.success) {
+        setSnmpTrapSendStatus("Trap sent.");
+      } else {
+        setSnmpTrapSendStatus(`Trap error: ${result.error || "Unknown error"}`);
+      }
+    } catch (err) {
+      setSnmpTrapSendStatus(`Trap error: ${String(err)}`);
+    }
+  };
 
   const handleSnmpCounterPoll = async () => {
     const ifIndex = snmpCounterIfIndex.trim();
@@ -1037,7 +1070,39 @@ export default function App() {
               )}
             </div>
 
-            <div className="card">
+                        <div className="card">
+              <h3>Send Test Trap</h3>
+              <p className="helper-text">Send a test SNMP trap to verify listeners.</p>
+              <div className="field-row">
+                <label className="field">
+                  Target Host
+                  <input value={snmpTrapTargetHost} onChange={(e) => setSnmpTrapTargetHost(e.target.value)} />
+                </label>
+                <label className="field">
+                  Target Port
+                  <input
+                    type="number"
+                    min={1}
+                    value={snmpTrapTargetPort}
+                    onChange={(e) => setSnmpTrapTargetPort(Number(e.target.value))}
+                  />
+                </label>
+              </div>
+              <label className="field">
+                Trap OID
+                <input value={snmpTrapOid} onChange={(e) => setSnmpTrapOid(e.target.value)} />
+              </label>
+              <label className="field">
+                Message
+                <input value={snmpTrapMessage} onChange={(e) => setSnmpTrapMessage(e.target.value)} />
+              </label>
+              <div className="card-actions">
+                <button className="secondary" onClick={handleSnmpSendTrap}>Send Trap</button>
+              </div>
+              {snmpTrapSendStatus && <p className="helper-text">{snmpTrapSendStatus}</p>}
+            </div>
+
+<div className="card">
               <h3>Trap Receiver</h3>
               <p className="helper-text">Listen on {snmpTrapAddress}:{snmpTrapPort} for v1/v2c/v3 traps. (Port 1162 avoids macOS privileged port restrictions.)</p>
               <div className="field-row">

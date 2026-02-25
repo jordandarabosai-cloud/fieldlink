@@ -258,6 +258,44 @@ ipcMain.handle("snmp:walk", async (_event, options) => {
   });
 });
 
+ipcMain.handle("snmp:sendTrap", async (_event, options) => {
+  const session = createSnmpSession(options);
+  if (typeof session.trap !== "function") {
+    session.close();
+    return { success: false, error: "Trap sending not supported by this SNMP session." };
+  }
+  const trapOid = options.trapOid || "1.3.6.1.6.3.1.1.5.1";
+  const varbinds = [
+    {
+      oid: "1.3.6.1.2.1.1.3.0",
+      type: snmp.ObjectType.TimeTicks,
+      value: Math.floor(process.uptime() * 100),
+    },
+    {
+      oid: "1.3.6.1.6.3.1.1.4.1.0",
+      type: snmp.ObjectType.OID,
+      value: trapOid,
+    },
+  ];
+  if (options.message) {
+    varbinds.push({
+      oid: "1.3.6.1.4.1.32473.1.1.0",
+      type: snmp.ObjectType.OctetString,
+      value: options.message,
+    });
+  }
+  return new Promise((resolve) => {
+    session.trap(trapOid, varbinds, (err) => {
+      session.close();
+      if (err) {
+        resolve({ success: false, error: String(err) });
+        return;
+      }
+      resolve({ success: true });
+    });
+  });
+});
+
 ipcMain.handle("snmp:stopReceiver", async () => {
   if (snmpReceiver) {
     try {
