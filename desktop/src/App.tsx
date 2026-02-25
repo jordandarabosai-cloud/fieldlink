@@ -147,6 +147,7 @@ export default function App() {
 
   const handleAddPoll = (startOverride?: number) => {
     const id = crypto.randomUUID();
+    const nextStart = startOverride ?? pollStart;
     setPollItems((items) => [
       ...items,
       {
@@ -154,18 +155,20 @@ export default function App() {
         name: pollName,
         functionType: pollFunction,
         address: pollSlaveId,
-        start: startOverride ?? pollStart,
+        start: nextStart,
         count: pollCount,
         intervalMs: pollInterval,
         enabled: true,
       },
     ]);
+    setPollName(`Reg ${nextStart}`);
   };
 
   const handleAddNextPoll = () => {
     const nextStart = pollStart + pollCount;
     handleAddPoll(nextStart);
     setPollStart(nextStart);
+    setPollName(`Reg ${nextStart}`);
   };
 
   const handleTogglePoll = (id: string) => {
