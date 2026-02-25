@@ -250,6 +250,20 @@ export default function App() {
     setStatus("CSV exported.");
   };
 
+  const formatTrapValue = (value: unknown) => {
+    if (value === null || value === undefined) return "";
+
+    if (value instanceof Uint8Array) {
+      return String.fromCharCode(...value);
+    }
+
+    if (Array.isArray(value) && value.every((v) => typeof v === "number")) {
+      return String.fromCharCode(...value);
+    }
+
+    return String(value);
+  };
+
   const exportTrapCsv = () => {
     if (snmpTraps.length === 0) {
       setSnmpActionStatus("No trap data to export.");
@@ -261,7 +275,7 @@ export default function App() {
       trap.varbinds.map((vb) => [
         toCsvValue(trap.receivedAt),
         toCsvValue(vb.oid),
-        toCsvValue(vb.value ? String(vb.value) : ""),
+        toCsvValue(formatTrapValue(vb.value)),
       ])
     );
 
@@ -868,7 +882,7 @@ export default function App() {
                       <ul>
                         {trap.varbinds.map((vb, index) => (
                           <li key={`${trap.id}-${index}`}>
-                            {vb.oid}: {String(vb.value ?? "")}
+                            {vb.oid}: {formatTrapValue(vb.value)}
                           </li>
                         ))}
                       </ul>
