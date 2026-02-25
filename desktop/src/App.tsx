@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type SerialPort = {
   path: string;
@@ -43,6 +43,19 @@ type TrapEntry = {
   id: string;
   receivedAt: string;
   varbinds: SnmpVarbind[];
+};
+
+type SnmpCounterLog = {
+  id: string;
+  timestamp: string;
+  ifIndex: string;
+  inErrors: number;
+  outErrors: number;
+  inDiscards: number;
+  outDiscards: number;
+  inOctets: number;
+  outOctets: number;
+  alert?: string;
 };
 
 const baudRates = [9600, 19200, 38400, 57600, 115200];
@@ -107,6 +120,23 @@ export default function App() {
   const [snmpTrapAddress, setSnmpTrapAddress] = useState<string>("0.0.0.0");
   const [snmpTrapCommunity, setSnmpTrapCommunity] = useState<string>("public");
   const [snmpActionStatus, setSnmpActionStatus] = useState<string>("");
+  const [snmpCounterIfIndex, setSnmpCounterIfIndex] = useState<string>("1");
+  const [snmpCounterInterval, setSnmpCounterInterval] = useState<number>(10000);
+  const [snmpCounterThreshold, setSnmpCounterThreshold] = useState<number>(1);
+  const [snmpCounterActive, setSnmpCounterActive] = useState<boolean>(false);
+  const [snmpCounterLogs, setSnmpCounterLogs] = useState<SnmpCounterLog[]>([]);
+  const [snmpCounterStatus, setSnmpCounterStatus] = useState<string>("");
+  const snmpCounterLastRef = useRef<
+    | {
+        inErrors: number;
+        outErrors: number;
+        inDiscards: number;
+        outDiscards: number;
+        inOctets: number;
+        outOctets: number;
+      }
+    | null
+  >(null);
 
   const refreshPorts = async () => {
     try {
@@ -365,6 +395,75 @@ export default function App() {
     }
   };
 
+
+  const handleSnmpCounterPoll = async () => {
+    const ifIndex = snmpCounterIfIndex.trim();
+    if (!ifIndex) {
+      setSnmpCounterStatus("Provide an ifIndex to poll.");
+      return;
+    }
+    try {
+      setSnmpCounterStatus("Polling counters...");
+      const base = "1.3.6.1.2.1.2.2.1";
+      const oids = [
+        `${base}.14.${ifIndex}`,
+        `${base}.20.${ifIndex}`,
+        `${base}.13.${ifIndex}`,
+        `${base}.19.${ifIndex}`,
+        `${base}.10.${ifIndex}`,
+        `${base}.16.${ifIndex}`,
+      ];
+      const result = await window.fieldlink.snmp.get({
+        host: snmpHost,
+        port: snmpPort,
+        version: snmpVersion,
+        community: snmpCommunity,
+        v3: {
+          user: snmpV3User,
+          authProtocol: snmpV3AuthProtocol,
+          authKey: snmpV3AuthKey,
+          privProtocol: snmpV3PrivProtocol,
+          privKey: snmpV3PrivKey,
+        },
+        oids,
+      });
+      const map = new Map((result.varbinds || []).map((vb) => [vb.oid, vb.value]));
+      const readValue = (oid: string) => {
+        const value = Number(map.get(oid) ?? 0);
+        return Number.isFinite(value) ? value : 0;
+      };
+      const values = {
+        inErrors: readValue(`${base}.14.${ifIndex}`),
+        outErrors: readValue(`${base}.20.${ifIndex}`),
+        inDiscards: readValue(`${base}.13.${ifIndex}`),
+        outDiscards: readValue(`${base}.19.${ifIndex}`),
+        inOctets: readValue(`${base}.10.${ifIndex}`),
+        outOctets: readValue(`${base}.16.${ifIndex}`),
+      };
+      const last = snmpCounterLastRef.current;
+      let alert: string | undefined;
+      if (last) {
+        const deltaErrors = (values.inErrors - last.inErrors) + (values.outErrors - last.outErrors);
+        const deltaDiscards = (values.inDiscards - last.inDiscards) + (values.outDiscards - last.outDiscards);
+        if (deltaErrors >= snmpCounterThreshold || deltaDiscards >= snmpCounterThreshold) {
+          alert = `Errors/discards increased (errors +${deltaErrors}, discards +${deltaDiscards})`;
+        }
+      }
+      snmpCounterLastRef.current = values;
+      const entry: SnmpCounterLog = {
+        id: crypto.randomUUID(),
+        timestamp: formatTimestamp(new Date()),
+        ifIndex,
+        ...values,
+        alert,
+      };
+      setSnmpCounterLogs((logs) => [entry, ...logs].slice(0, 200));
+      setSnmpCounterStatus(alert ?? "Counter poll updated.");
+    } catch (err) {
+      setSnmpCounterStatus(`Counter poll error: ${String(err)}`);
+    }
+  };
+
   const exportSnmpResults = () => {
     if (!snmpResults.length) {
       setSnmpActionStatus("No SNMP results to export.");
@@ -405,6 +504,31 @@ export default function App() {
       ]);
     });
   }, []);
+  useEffect(() => {
+    snmpCounterLastRef.current = null;
+  }, [snmpCounterIfIndex]);
+
+  useEffect(() => {
+    if (!snmpCounterActive) return;
+    handleSnmpCounterPoll();
+    const timer = setInterval(handleSnmpCounterPoll, snmpCounterInterval);
+    return () => clearInterval(timer);
+  }, [
+    snmpCounterActive,
+    snmpCounterInterval,
+    snmpCounterIfIndex,
+    snmpCounterThreshold,
+    snmpHost,
+    snmpPort,
+    snmpVersion,
+    snmpCommunity,
+    snmpV3User,
+    snmpV3AuthProtocol,
+    snmpV3AuthKey,
+    snmpV3PrivProtocol,
+    snmpV3PrivKey,
+  ]);
+
 
   useEffect(() => {
     const timers = pollItems
@@ -839,6 +963,78 @@ export default function App() {
                 <input value={snmpBaseOid} onChange={(e) => setSnmpBaseOid(e.target.value)} />
               </label>
               {snmpActionStatus && <p className="helper-text">{snmpActionStatus}</p>}
+            </div>
+
+            <div className="card">
+              <h3>Interface Counter Polling</h3>
+              <p className="helper-text">Poll IF-MIB counters for a single interface. Use ifIndex from IF-MIB::ifName.</p>
+              <div className="field-row">
+                <label className="field">
+                  Interface ifIndex
+                  <input value={snmpCounterIfIndex} onChange={(e) => setSnmpCounterIfIndex(e.target.value)} />
+                </label>
+                <label className="field">
+                  Interval (ms)
+                  <input
+                    type="number"
+                    min={1000}
+                    value={snmpCounterInterval}
+                    onChange={(e) => setSnmpCounterInterval(Number(e.target.value))}
+                  />
+                </label>
+                <label className="field">
+                  Error threshold / interval
+                  <input
+                    type="number"
+                    min={1}
+                    value={snmpCounterThreshold}
+                    onChange={(e) => setSnmpCounterThreshold(Number(e.target.value))}
+                  />
+                </label>
+              </div>
+              <div className="card-actions">
+                {snmpCounterActive ? (
+                  <button className="secondary" onClick={() => setSnmpCounterActive(false)}>Stop Polling</button>
+                ) : (
+                  <button className="secondary" onClick={() => setSnmpCounterActive(true)}>Start Polling</button>
+                )}
+                <button className="ghost" onClick={handleSnmpCounterPoll}>Poll Now</button>
+              </div>
+              {snmpCounterStatus && <p className="helper-text">{snmpCounterStatus}</p>}
+              {snmpCounterLogs.length === 0 ? (
+                <p className="helper-text">No counter samples yet.</p>
+              ) : (
+                <table className="log-table">
+                  <thead>
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>ifIndex</th>
+                      <th>In Errors</th>
+                      <th>Out Errors</th>
+                      <th>In Discards</th>
+                      <th>Out Discards</th>
+                      <th>In Octets</th>
+                      <th>Out Octets</th>
+                      <th>Alert</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {snmpCounterLogs.slice(0, 50).map((log) => (
+                      <tr key={log.id}>
+                        <td>{log.timestamp}</td>
+                        <td>{log.ifIndex}</td>
+                        <td>{log.inErrors}</td>
+                        <td>{log.outErrors}</td>
+                        <td>{log.inDiscards}</td>
+                        <td>{log.outDiscards}</td>
+                        <td>{log.inOctets}</td>
+                        <td>{log.outOctets}</td>
+                        <td>{log.alert ?? ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             <div className="card">
