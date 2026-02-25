@@ -1024,9 +1024,6 @@ export default function App() {
 
             <div className="card">
               <h3>Console Output</h3>
-              <div className="console-output">
-                <pre>{consoleLog || "No data yet."}</pre>
-              </div>
               <div className="field-row">
                 <label className="field" style={{ flex: 1 }}>
                   Send
@@ -1044,6 +1041,9 @@ export default function App() {
                 <button className="secondary" onClick={sendConsoleInput}>
                   Send
                 </button>
+              </div>
+              <div className="console-output">
+                <pre>{consoleLog || "No data yet."}</pre>
               </div>
             </div>
           </section>
