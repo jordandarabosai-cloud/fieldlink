@@ -2,12 +2,16 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const { SerialPort } = require("serialport");
 const ModbusRTU = require("modbus-serial");
+const snmp = require("net-snmp");
 
 const isDev = !app.isPackaged;
 let activePort = null;
 let modbusClient = null;
 let modbusQueue = Promise.resolve();
 const MODBUS_TIMEOUT_MS = 2000;
+
+let snmpReceiver = null;
+let snmpReceiverConfig = { port: 162, address: "0.0.0.0" };
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -44,6 +48,67 @@ function withTimeout(promise, timeoutMs, label) {
     timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function createSnmpSession(options) {
+  const { host, port, version, community, v3 } = options;
+  const versionMap = { v1: snmp.Version1, v2c: snmp.Version2c, v3: snmp.Version3 };
+  const snmpVersion = versionMap[version] ?? snmp.Version2c;
+
+  if (snmpVersion === snmp.Version3) {
+    return snmp.createV3Session(host, v3?.user || "", {
+      port: Number(port) || 161,
+      version: snmpVersion,
+      engineID: v3?.engineId || undefined,
+      authProtocol: v3?.authProtocol || undefined,
+      authKey: v3?.authKey || undefined,
+      privProtocol: v3?.privProtocol || undefined,
+      privKey: v3?.privKey || undefined,
+    });
+  }
+
+  return snmp.createSession(host, community || "public", {
+    port: Number(port) || 161,
+    version: snmpVersion,
+  });
+}
+
+function startSnmpReceiver(config) {
+  if (snmpReceiver) {
+    try {
+      snmpReceiver.close();
+    } catch {}
+    snmpReceiver = null;
+  }
+
+  snmpReceiverConfig = {
+    port: Number(config.port) || 162,
+    address: config.address || "0.0.0.0",
+  };
+
+  snmpReceiver = snmp.createReceiver(
+    {
+      port: snmpReceiverConfig.port,
+      transport: "udp4",
+    },
+    (error) => {
+      if (error) {
+        console.error("SNMP receiver error", error);
+      }
+    }
+  );
+
+  snmpReceiver.on("trap", (msg) => {
+    const payload = {
+      receivedAt: new Date().toISOString(),
+      raw: msg,
+      varbinds: msg?.pdu?.varbinds || [],
+    };
+
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.webContents.send("snmp:trap", payload);
+    });
+  });
 }
 
 ipcMain.handle("serial:list", async () => {
@@ -140,6 +205,57 @@ ipcMain.handle("modbus:writeMultiple", async (_event, options) => {
       throw new Error(error?.message || String(error));
     }
   });
+});
+
+ipcMain.handle("snmp:configure", async (_event, options) => {
+  startSnmpReceiver(options.receiver || { port: 162, address: "0.0.0.0" });
+  return { listening: true, port: snmpReceiverConfig.port, address: snmpReceiverConfig.address };
+});
+
+ipcMain.handle("snmp:get", async (_event, options) => {
+  const session = createSnmpSession(options);
+  const oids = options.oids || [];
+  if (!oids.length) throw new Error("No OIDs provided");
+
+  return new Promise((resolve, reject) => {
+    session.get(oids, (error, varbinds) => {
+      session.close();
+      if (error) return reject(error);
+      resolve({ varbinds });
+    });
+  });
+});
+
+ipcMain.handle("snmp:walk", async (_event, options) => {
+  const session = createSnmpSession(options);
+  const baseOid = options.baseOid;
+  if (!baseOid) throw new Error("Missing base OID");
+
+  return new Promise((resolve, reject) => {
+    const results = [];
+    session.walk(
+      baseOid,
+      20,
+      (varbinds) => {
+        results.push(...varbinds);
+      },
+      (error) => {
+        session.close();
+        if (error) return reject(error);
+        resolve({ varbinds: results });
+      }
+    );
+  });
+});
+
+ipcMain.handle("snmp:stopReceiver", async () => {
+  if (snmpReceiver) {
+    try {
+      snmpReceiver.close();
+    } catch {}
+    snmpReceiver = null;
+  }
+  return { listening: false };
 });
 
 app.whenReady().then(() => {

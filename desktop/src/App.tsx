@@ -33,6 +33,18 @@ type PollingLog = {
   error?: string;
 };
 
+type SnmpVarbind = {
+  oid: string;
+  type?: string;
+  value?: unknown;
+};
+
+type TrapEntry = {
+  id: string;
+  receivedAt: string;
+  varbinds: SnmpVarbind[];
+};
+
 const baudRates = [9600, 19200, 38400, 57600, 115200];
 
 const formatTimestamp = (date: Date) =>
@@ -51,7 +63,7 @@ const toCsvValue = (value: string) =>
     : value;
 
 export default function App() {
-  const [activePage, setActivePage] = useState<"connections" | "discovery" | "polling" | "logs">("connections");
+  const [activePage, setActivePage] = useState<"connections" | "discovery" | "polling" | "logs" | "snmp">("connections");
   const [ports, setPorts] = useState<SerialPort[]>([]);
   const [selectedPort, setSelectedPort] = useState<string>("");
   const [baudRate, setBaudRate] = useState<number>(115200);
@@ -75,6 +87,22 @@ export default function App() {
   const [pollSlaveId, setPollSlaveId] = useState<number>(modbusAddress);
   const [pollItems, setPollItems] = useState<PollingItem[]>([]);
   const [pollLogs, setPollLogs] = useState<PollingLog[]>([]);
+
+  const [snmpHost, setSnmpHost] = useState<string>("127.0.0.1");
+  const [snmpPort, setSnmpPort] = useState<number>(161);
+  const [snmpVersion, setSnmpVersion] = useState<"v1" | "v2c" | "v3">("v2c");
+  const [snmpCommunity, setSnmpCommunity] = useState<string>("public");
+  const [snmpV3User, setSnmpV3User] = useState<string>("");
+  const [snmpV3AuthProtocol, setSnmpV3AuthProtocol] = useState<string>("SHA");
+  const [snmpV3AuthKey, setSnmpV3AuthKey] = useState<string>("");
+  const [snmpV3PrivProtocol, setSnmpV3PrivProtocol] = useState<string>("AES");
+  const [snmpV3PrivKey, setSnmpV3PrivKey] = useState<string>("");
+  const [snmpOidList, setSnmpOidList] = useState<string>("1.3.6.1.2.1.1.1.0");
+  const [snmpBaseOid, setSnmpBaseOid] = useState<string>("1.3.6.1.2.1");
+  const [snmpResults, setSnmpResults] = useState<SnmpVarbind[]>([]);
+  const [snmpTraps, setSnmpTraps] = useState<TrapEntry[]>([]);
+  const [snmpReceiverStatus, setSnmpReceiverStatus] = useState<string>("Not listening");
+  const [snmpActionStatus, setSnmpActionStatus] = useState<string>("");
 
   const refreshPorts = async () => {
     try {
@@ -218,6 +246,113 @@ export default function App() {
     setStatus("CSV exported.");
   };
 
+  const exportTrapCsv = () => {
+    if (snmpTraps.length === 0) {
+      setSnmpActionStatus("No trap data to export.");
+      return;
+    }
+
+    const header = ["receivedAt", "oid", "value"];
+    const rows = snmpTraps.flatMap((trap) =>
+      trap.varbinds.map((vb) => [
+        toCsvValue(trap.receivedAt),
+        toCsvValue(vb.oid),
+        toCsvValue(vb.value ? String(vb.value) : ""),
+      ])
+    );
+
+    const csv = [header.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `fieldlink-snmp-traps-${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setSnmpActionStatus("Trap CSV exported.");
+  };
+
+  const handleSnmpConfigure = async () => {
+    try {
+      const result = await window.fieldlink.snmp.configure({
+        receiver: { port: 162, address: "0.0.0.0" },
+      });
+      setSnmpReceiverStatus(`Listening on ${result.address}:${result.port}`);
+    } catch (err) {
+      setSnmpReceiverStatus(`Receiver error: ${String(err)}`);
+    }
+  };
+
+  const handleSnmpGet = async () => {
+    try {
+      setSnmpActionStatus("Running GET...");
+      const oids = snmpOidList
+        .split(/[,\s]+/)
+        .map((oid) => oid.trim())
+        .filter(Boolean);
+      const result = await window.fieldlink.snmp.get({
+        host: snmpHost,
+        port: snmpPort,
+        version: snmpVersion,
+        community: snmpCommunity,
+        v3: {
+          user: snmpV3User,
+          authProtocol: snmpV3AuthProtocol,
+          authKey: snmpV3AuthKey,
+          privProtocol: snmpV3PrivProtocol,
+          privKey: snmpV3PrivKey,
+        },
+        oids,
+      });
+      setSnmpResults(result.varbinds || []);
+      setSnmpActionStatus("GET complete.");
+    } catch (err) {
+      setSnmpActionStatus(`GET error: ${String(err)}`);
+    }
+  };
+
+  const handleSnmpWalk = async () => {
+    try {
+      setSnmpActionStatus("Running WALK...");
+      const result = await window.fieldlink.snmp.walk({
+        host: snmpHost,
+        port: snmpPort,
+        version: snmpVersion,
+        community: snmpCommunity,
+        v3: {
+          user: snmpV3User,
+          authProtocol: snmpV3AuthProtocol,
+          authKey: snmpV3AuthKey,
+          privProtocol: snmpV3PrivProtocol,
+          privKey: snmpV3PrivKey,
+        },
+        baseOid: snmpBaseOid,
+      });
+      setSnmpResults(result.varbinds || []);
+      setSnmpActionStatus("WALK complete.");
+    } catch (err) {
+      setSnmpActionStatus(`WALK error: ${String(err)}`);
+    }
+  };
+
+  const exportSnmpResults = () => {
+    if (!snmpResults.length) {
+      setSnmpActionStatus("No SNMP results to export.");
+      return;
+    }
+    const header = ["oid", "value"];
+    const rows = snmpResults.map((vb) => [toCsvValue(vb.oid), toCsvValue(vb.value ? String(vb.value) : "")]);
+    const csv = [header.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `fieldlink-snmp-${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setSnmpActionStatus("SNMP CSV exported.");
+  };
+
   const sortedLogs = useMemo(() => [...pollLogs].slice(0, 200), [pollLogs]);
 
   useEffect(() => {
@@ -227,6 +362,19 @@ export default function App() {
   useEffect(() => {
     setPollName(`Reg ${pollStart}`);
   }, [pollStart]);
+
+  useEffect(() => {
+    window.fieldlink.snmp.onTrap((payload) => {
+      setSnmpTraps((traps) => [
+        {
+          id: crypto.randomUUID(),
+          receivedAt: payload.receivedAt,
+          varbinds: payload.varbinds || [],
+        },
+        ...traps,
+      ]);
+    });
+  }, []);
 
   useEffect(() => {
     const timers = pollItems
@@ -302,6 +450,9 @@ export default function App() {
           <button className={activePage === "polling" ? "active" : ""} onClick={() => setActivePage("polling")}>
             Polling
           </button>
+          <button className={activePage === "snmp" ? "active" : ""} onClick={() => setActivePage("snmp")}>
+            SNMP
+          </button>
           <button className={activePage === "logs" ? "active" : ""} onClick={() => setActivePage("logs")}>
             Logs
           </button>
@@ -315,6 +466,7 @@ export default function App() {
               {activePage === "connections" && "Connect to your FieldLink device or any RS-485/RS-232 adapter."}
               {activePage === "discovery" && "Scan the bus and identify devices (Phase 2)."}
               {activePage === "polling" && "Build repeatable polling sets and export results."}
+              {activePage === "snmp" && "Query devices with SNMP and listen for traps."}
               {activePage === "logs" && "Review recent polling and Modbus activity."}
             </p>
           </div>
@@ -326,6 +478,11 @@ export default function App() {
           {activePage === "polling" && (
             <button className="primary" onClick={exportCsv}>
               Export CSV
+            </button>
+          )}
+          {activePage === "snmp" && (
+            <button className="primary" onClick={exportSnmpResults}>
+              Export Results CSV
             </button>
           )}
         </header>
@@ -572,6 +729,133 @@ export default function App() {
                         <td>{item.count}</td>
                         <td>{item.lastValues ? item.lastValues.join(", ") : "-"}</td>
                         <td>{item.lastUpdated || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activePage === "snmp" && (
+          <section className="grid">
+            <div className="card">
+              <h3>SNMP Connection</h3>
+              <label className="field">
+                Host/IP
+                <input value={snmpHost} onChange={(e) => setSnmpHost(e.target.value)} />
+              </label>
+              <div className="field-row">
+                <label className="field">
+                  Port
+                  <input type="number" min={1} value={snmpPort} onChange={(e) => setSnmpPort(Number(e.target.value))} />
+                </label>
+                <label className="field">
+                  Version
+                  <select value={snmpVersion} onChange={(e) => setSnmpVersion(e.target.value as "v1" | "v2c" | "v3")}
+                  >
+                    <option value="v1">v1</option>
+                    <option value="v2c">v2c</option>
+                    <option value="v3">v3</option>
+                  </select>
+                </label>
+              </div>
+              {snmpVersion !== "v3" ? (
+                <label className="field">
+                  Community
+                  <input value={snmpCommunity} onChange={(e) => setSnmpCommunity(e.target.value)} />
+                </label>
+              ) : (
+                <div className="field-row">
+                  <label className="field">
+                    User
+                    <input value={snmpV3User} onChange={(e) => setSnmpV3User(e.target.value)} />
+                  </label>
+                  <label className="field">
+                    Auth Protocol
+                    <select value={snmpV3AuthProtocol} onChange={(e) => setSnmpV3AuthProtocol(e.target.value)}>
+                      <option value="SHA">SHA</option>
+                      <option value="MD5">MD5</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    Auth Key
+                    <input value={snmpV3AuthKey} onChange={(e) => setSnmpV3AuthKey(e.target.value)} />
+                  </label>
+                  <label className="field">
+                    Priv Protocol
+                    <select value={snmpV3PrivProtocol} onChange={(e) => setSnmpV3PrivProtocol(e.target.value)}>
+                      <option value="AES">AES</option>
+                      <option value="DES">DES</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    Priv Key
+                    <input value={snmpV3PrivKey} onChange={(e) => setSnmpV3PrivKey(e.target.value)} />
+                  </label>
+                </div>
+              )}
+              <div className="card-actions">
+                <button className="secondary" onClick={handleSnmpGet}>GET</button>
+                <button className="ghost" onClick={handleSnmpWalk}>WALK</button>
+              </div>
+              <label className="field">
+                OIDs (comma or space separated)
+                <input value={snmpOidList} onChange={(e) => setSnmpOidList(e.target.value)} />
+              </label>
+              <label className="field">
+                Base OID (for walk)
+                <input value={snmpBaseOid} onChange={(e) => setSnmpBaseOid(e.target.value)} />
+              </label>
+              {snmpActionStatus && <p className="helper-text">{snmpActionStatus}</p>}
+            </div>
+
+            <div className="card">
+              <h3>Trap Receiver</h3>
+              <p className="helper-text">Listen on 0.0.0.0:162 for v1/v2c/v3 traps.</p>
+              <div className="card-actions">
+                <button className="secondary" onClick={handleSnmpConfigure}>Start Listening</button>
+                <button className="ghost" onClick={exportTrapCsv}>Export Trap CSV</button>
+              </div>
+              <p className="helper-text">{snmpReceiverStatus}</p>
+              <div className="trap-log">
+                {snmpTraps.length === 0 ? (
+                  <p className="helper-text">No traps yet.</p>
+                ) : (
+                  snmpTraps.slice(0, 50).map((trap) => (
+                    <div key={trap.id} className="trap-entry">
+                      <strong>{trap.receivedAt}</strong>
+                      <ul>
+                        {trap.varbinds.map((vb, index) => (
+                          <li key={`${trap.id}-${index}`}>
+                            {vb.oid}: {String(vb.value ?? "")}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="card">
+              <h3>SNMP Results</h3>
+              {snmpResults.length === 0 ? (
+                <p className="helper-text">No results yet.</p>
+              ) : (
+                <table className="log-table">
+                  <thead>
+                    <tr>
+                      <th>OID</th>
+                      <th>Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {snmpResults.map((vb, index) => (
+                      <tr key={`${vb.oid}-${index}`}>
+                        <td>{vb.oid}</td>
+                        <td>{String(vb.value ?? "")}</td>
                       </tr>
                     ))}
                   </tbody>

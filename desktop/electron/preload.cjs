@@ -12,4 +12,11 @@ contextBridge.exposeInMainWorld("fieldlink", {
     readInput: (options) => ipcRenderer.invoke("modbus:readInput", options),
     writeMultiple: (options) => ipcRenderer.invoke("modbus:writeMultiple", options),
   },
+  snmp: {
+    configure: (options) => ipcRenderer.invoke("snmp:configure", options),
+    get: (options) => ipcRenderer.invoke("snmp:get", options),
+    walk: (options) => ipcRenderer.invoke("snmp:walk", options),
+    stopReceiver: () => ipcRenderer.invoke("snmp:stopReceiver"),
+    onTrap: (callback) => ipcRenderer.on("snmp:trap", (_event, payload) => callback(payload)),
+  },
 });
