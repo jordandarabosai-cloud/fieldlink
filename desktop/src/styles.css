@@ -48,6 +48,7 @@ body {
 
 .main {
   padding: 24px;
+  overflow-x: hidden;
 }
 
 .page-header {
@@ -64,8 +65,9 @@ body {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
+  align-items: start;
 }
 
 .card {
@@ -73,6 +75,7 @@ body {
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+  min-width: 0;
 }
 
 .card h3 {
@@ -89,7 +92,7 @@ body {
 
 .field-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
 }
 
@@ -124,6 +127,7 @@ button.ghost {
 
 .card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
