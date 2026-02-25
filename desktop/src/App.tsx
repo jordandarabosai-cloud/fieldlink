@@ -223,8 +223,7 @@ export default function App() {
   const sendConsoleInput = async () => {
     if (!consoleInput) return;
     try {
-      await window.fieldlink.serial.consoleWrite({ data: consoleInput + "
-" });
+      await window.fieldlink.serial.consoleWrite({ data: consoleInput + "\n" });
       setConsoleInput("");
     } catch (err) {
       setStatus(`Console write failed: ${String(err)}`);
