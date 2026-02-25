@@ -1,10 +1,11 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const { SerialPort } = require("serialport");
+const ModbusRTU = require("modbus-serial");
 
 const isDev = !app.isPackaged;
 let activePort = null;
-const modbusStore = new Map();
+let modbusClient = null;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -24,19 +25,9 @@ function createWindow() {
 }
 
 function ensureSerialOpen() {
-  if (!activePort || !activePort.isOpen) {
+  if (!activePort || !activePort.isOpen || !modbusClient) {
     throw new Error("Serial port not open");
   }
-}
-
-function readRegisters(start, count) {
-  const values = [];
-  for (let i = 0; i < count; i += 1) {
-    const address = start + i;
-    const stored = modbusStore.get(address);
-    values.push(typeof stored === "number" ? stored : 0);
-  }
-  return values;
 }
 
 ipcMain.handle("serial:list", async () => {
@@ -58,12 +49,25 @@ ipcMain.handle("serial:open", async (_event, options) => {
     baudRate: options.baudRate,
     parity: options.parity,
     autoOpen: false,
+    dataBits: 8,
+    stopBits: 1,
   });
 
   return new Promise((resolve, reject) => {
-    activePort.open((err) => {
+    activePort.open(async (err) => {
       if (err) return reject(err.message);
-      resolve({ open: true, path: options.path });
+      try {
+        modbusClient = new ModbusRTU();
+        await modbusClient.connectRTUBuffered(activePort, {
+          baudRate: options.baudRate,
+          parity: options.parity,
+          dataBits: 8,
+          stopBits: 1,
+        });
+        resolve({ open: true, path: options.path });
+      } catch (error) {
+        reject(error?.message || String(error));
+      }
     });
   });
 });
@@ -73,27 +77,35 @@ ipcMain.handle("serial:close", async () => {
   if (!activePort.isOpen) return { open: false };
 
   return new Promise((resolve) => {
-    activePort.close(() => resolve({ open: false }));
+    activePort.close(() => {
+      if (modbusClient) {
+        modbusClient.close(() => resolve({ open: false }));
+        modbusClient = null;
+        return;
+      }
+      resolve({ open: false });
+    });
   });
 });
 
 ipcMain.handle("modbus:readHolding", async (_event, options) => {
   ensureSerialOpen();
-  const values = readRegisters(options.start, options.count);
-  return { values };
+  modbusClient.setID(options.address);
+  const response = await modbusClient.readHoldingRegisters(options.start, options.count);
+  return { values: response.data };
 });
 
 ipcMain.handle("modbus:readInput", async (_event, options) => {
   ensureSerialOpen();
-  const values = readRegisters(options.start, options.count);
-  return { values };
+  modbusClient.setID(options.address);
+  const response = await modbusClient.readInputRegisters(options.start, options.count);
+  return { values: response.data };
 });
 
 ipcMain.handle("modbus:writeMultiple", async (_event, options) => {
   ensureSerialOpen();
-  options.values.forEach((value, index) => {
-    modbusStore.set(options.start + index, value);
-  });
+  modbusClient.setID(options.address);
+  await modbusClient.writeRegisters(options.start, options.values);
   return { written: options.values.length };
 });
 
