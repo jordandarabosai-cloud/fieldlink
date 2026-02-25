@@ -25,7 +25,7 @@ function createWindow() {
 }
 
 function ensureSerialOpen() {
-  if (!activePort || !activePort.isOpen || !modbusClient) {
+  if (!activePort || !modbusClient) {
     throw new Error("Serial port not open");
   }
 }
@@ -40,49 +40,35 @@ ipcMain.handle("serial:list", async () => {
 });
 
 ipcMain.handle("serial:open", async (_event, options) => {
-  if (activePort?.isOpen) {
-    await new Promise((resolve) => activePort.close(() => resolve()));
+  if (modbusClient) {
+    await new Promise((resolve) => modbusClient.close(() => resolve()));
   }
 
-  activePort = new SerialPort({
-    path: options.path,
-    baudRate: options.baudRate,
-    parity: options.parity,
-    autoOpen: false,
-    dataBits: 8,
-    stopBits: 1,
-  });
+  modbusClient = new ModbusRTU();
 
-  return new Promise((resolve, reject) => {
-    activePort.open(async (err) => {
-      if (err) return reject(err.message);
-      try {
-        modbusClient = new ModbusRTU();
-        await modbusClient.connectRTUBuffered(activePort, {
-          baudRate: options.baudRate,
-          parity: options.parity,
-          dataBits: 8,
-          stopBits: 1,
-        });
-        resolve({ open: true, path: options.path });
-      } catch (error) {
-        reject(error?.message || String(error));
-      }
+  try {
+    await modbusClient.connectRTUBuffered(options.path, {
+      baudRate: options.baudRate,
+      parity: options.parity,
+      dataBits: 8,
+      stopBits: 1,
     });
-  });
+    activePort = options.path;
+    return { open: true, path: options.path };
+  } catch (error) {
+    modbusClient = null;
+    activePort = null;
+    throw new Error(error?.message || String(error));
+  }
 });
 
 ipcMain.handle("serial:close", async () => {
-  if (!activePort) return { open: false };
-  if (!activePort.isOpen) return { open: false };
+  if (!modbusClient) return { open: false };
 
   return new Promise((resolve) => {
-    activePort.close(() => {
-      if (modbusClient) {
-        modbusClient.close(() => resolve({ open: false }));
-        modbusClient = null;
-        return;
-      }
+    modbusClient.close(() => {
+      modbusClient = null;
+      activePort = null;
       resolve({ open: false });
     });
   });
