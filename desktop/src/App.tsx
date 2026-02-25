@@ -1069,7 +1069,7 @@ export default function App() {
                   Send
                 </button>
               </div>
-              <div className="field-row">
+              <div className="console-controls">
                 <label className="field">
                   Font size
                   <input
@@ -1080,42 +1080,46 @@ export default function App() {
                     onChange={(e) => setConsoleFontSize(Number(e.target.value))}
                   />
                 </label>
-                <label className="field inline-toggle">
-                  <input
-                    type="checkbox"
-                    checked={consoleAutoScroll}
-                    onChange={(e) => setConsoleAutoScroll(e.target.checked)}
-                  />
-                  Auto-scroll
-                </label>
-                <label className="field inline-toggle">
-                  <input
-                    type="checkbox"
-                    checked={consoleLocalEcho}
-                    onChange={(e) => setConsoleLocalEcho(e.target.checked)}
-                  />
-                  Local echo
-                </label>
-                <label className="field inline-toggle">
-                  <input
-                    type="checkbox"
-                    checked={consoleCrLf}
-                    onChange={(e) => setConsoleCrLf(e.target.checked)}
-                  />
-                  CR/LF
-                </label>
-                <label className="field inline-toggle">
-                  <input
-                    type="checkbox"
-                    checked={consoleTimestamp}
-                    onChange={(e) => setConsoleTimestamp(e.target.checked)}
-                  />
-                  Timestamps
-                </label>
-                <button className="ghost" onClick={() => navigator.clipboard.writeText(consoleLog)}>
-                  Copy
-                </button>
-                <button className="ghost" onClick={() => setConsoleLog("")}>Clear</button>
+                <div className="console-toggles">
+                  <label className="inline-toggle">
+                    <input
+                      type="checkbox"
+                      checked={consoleAutoScroll}
+                      onChange={(e) => setConsoleAutoScroll(e.target.checked)}
+                    />
+                    Auto-scroll
+                  </label>
+                  <label className="inline-toggle">
+                    <input
+                      type="checkbox"
+                      checked={consoleLocalEcho}
+                      onChange={(e) => setConsoleLocalEcho(e.target.checked)}
+                    />
+                    Local echo
+                  </label>
+                  <label className="inline-toggle">
+                    <input
+                      type="checkbox"
+                      checked={consoleCrLf}
+                      onChange={(e) => setConsoleCrLf(e.target.checked)}
+                    />
+                    CR/LF
+                  </label>
+                  <label className="inline-toggle">
+                    <input
+                      type="checkbox"
+                      checked={consoleTimestamp}
+                      onChange={(e) => setConsoleTimestamp(e.target.checked)}
+                    />
+                    Timestamps
+                  </label>
+                </div>
+                <div className="console-actions">
+                  <button className="ghost" onClick={() => navigator.clipboard.writeText(consoleLog)}>
+                    Copy
+                  </button>
+                  <button className="ghost" onClick={() => setConsoleLog("")}>Clear</button>
+                </div>
               </div>
               <div className="console-output" ref={consoleOutputRef} style={{ fontSize: `${consoleFontSize}px` }}>
                 <pre>{consoleLog || "No data yet."}</pre>

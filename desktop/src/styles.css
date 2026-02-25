@@ -235,3 +235,32 @@ button.ghost {
 .inline-toggle input {
   width: auto;
 }
+
+.console-controls {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px 18px;
+  align-items: center;
+}
+
+.console-toggles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px 16px;
+}
+
+.console-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.inline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.console-controls .field {
+  margin-bottom: 0;
+}
