@@ -575,19 +575,13 @@ export default function App() {
   }, []);
   useEffect(() => {
     window.fieldlink.serial.onConsoleData((payload) => {
-      const normalized = payload.data.replace(/
-/g, "
-").replace(/
-/g, "
-");
+      const normalized = payload.data.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
       const stamp = consoleTimestamp ? `${formatTimestamp(new Date())} ` : "";
       const text = consoleTimestamp
         ? normalized
-            .split(/
-/)
+            .split(/\n/)
             .map((line, idx, arr) => (line || idx < arr.length - 1 ? stamp + line : ""))
-            .join("
-")
+            .join("\n")
         : normalized;
       setConsoleLog((log) => (log + text).slice(-20000));
     });
