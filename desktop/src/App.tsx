@@ -152,7 +152,7 @@ export default function App() {
       ...items,
       {
         id,
-        name: pollName,
+        name: `Reg ${nextStart}`,
         functionType: pollFunction,
         address: pollSlaveId,
         start: nextStart,
