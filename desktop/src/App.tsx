@@ -1,27 +1,56 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 type SerialPort = {
-  id: string;
-  label: string;
   path: string;
+  friendlyName: string;
+  serialNumber?: string | null;
 };
 
 const baudRates = [9600, 19200, 38400, 57600, 115200];
 
 export default function App() {
-  const [selectedPort, setSelectedPort] = useState<string>("/dev/tty.usbmodem01");
+  const [ports, setPorts] = useState<SerialPort[]>([]);
+  const [selectedPort, setSelectedPort] = useState<string>("");
   const [baudRate, setBaudRate] = useState<number>(115200);
   const [parity, setParity] = useState<"none" | "even" | "odd">("none");
   const [modbusAddress, setModbusAddress] = useState<number>(1);
   const [mstpMac, setMstpMac] = useState<number>(5);
+  const [serialOpen, setSerialOpen] = useState(false);
+  const [status, setStatus] = useState<string>("Idle");
 
-  const ports = useMemo<SerialPort[]>(
-    () => [
-      { id: "usbmodem01", label: "USB Serial (FieldLink)", path: "/dev/tty.usbmodem01" },
-      { id: "usbserial01", label: "USB Serial Adapter", path: "/dev/tty.usbserial-A501" },
-    ],
-    []
-  );
+  const refreshPorts = async () => {
+    try {
+      const list = await window.fieldlink.serial.listPorts();
+      setPorts(list);
+      if (!selectedPort && list.length > 0) {
+        setSelectedPort(list[0].path);
+      }
+    } catch (err) {
+      setStatus(`Failed to list ports: ${String(err)}`);
+    }
+  };
+
+  const openSerial = async () => {
+    if (!selectedPort) return;
+    try {
+      setStatus("Opening serial...");
+      await window.fieldlink.serial.open({ path: selectedPort, baudRate, parity });
+      setSerialOpen(true);
+      setStatus("Serial connected");
+    } catch (err) {
+      setStatus(`Serial open failed: ${String(err)}`);
+    }
+  };
+
+  const closeSerial = async () => {
+    await window.fieldlink.serial.close();
+    setSerialOpen(false);
+    setStatus("Serial disconnected");
+  };
+
+  useEffect(() => {
+    refreshPorts();
+  }, []);
 
   return (
     <div className="app">
@@ -40,7 +69,9 @@ export default function App() {
             <h2>Connections</h2>
             <p>Connect to your FieldLink device or any RS-485/RS-232 adapter.</p>
           </div>
-          <button className="primary">Refresh Ports</button>
+          <button className="primary" onClick={refreshPorts}>
+            Refresh Ports
+          </button>
         </header>
 
         <section className="grid">
@@ -49,9 +80,10 @@ export default function App() {
             <label className="field">
               Port
               <select value={selectedPort} onChange={(e) => setSelectedPort(e.target.value)}>
+                {ports.length === 0 && <option>No serial devices found</option>}
                 {ports.map((port) => (
-                  <option key={port.id} value={port.path}>
-                    {port.label} ({port.path})
+                  <option key={port.path} value={port.path}>
+                    {port.friendlyName} ({port.path})
                   </option>
                 ))}
               </select>
@@ -76,7 +108,15 @@ export default function App() {
                 </select>
               </label>
             </div>
-            <button className="secondary">Open Serial</button>
+            {serialOpen ? (
+              <button className="ghost" onClick={closeSerial}>
+                Close Serial
+              </button>
+            ) : (
+              <button className="secondary" onClick={openSerial}>
+                Open Serial
+              </button>
+            )}
           </div>
 
           <div className="card">
@@ -112,10 +152,11 @@ export default function App() {
           <div className="card">
             <h3>Status</h3>
             <ul className="status-list">
-              <li>Serial: Disconnected</li>
+              <li>Serial: {serialOpen ? "Connected" : "Disconnected"}</li>
               <li>Modbus RTU: Idle</li>
               <li>BACnet MS/TP: Idle</li>
               <li>USB-Ethernet: Not detected</li>
+              <li>{status}</li>
             </ul>
           </div>
         </section>
