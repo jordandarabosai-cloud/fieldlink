@@ -102,6 +102,7 @@ export default function App() {
   const [snmpResults, setSnmpResults] = useState<SnmpVarbind[]>([]);
   const [snmpTraps, setSnmpTraps] = useState<TrapEntry[]>([]);
   const [snmpReceiverStatus, setSnmpReceiverStatus] = useState<string>("Not listening");
+  const [snmpReceiverActive, setSnmpReceiverActive] = useState<boolean>(false);
   const [snmpActionStatus, setSnmpActionStatus] = useState<string>("");
 
   const refreshPorts = async () => {
@@ -278,6 +279,18 @@ export default function App() {
         receiver: { port: 162, address: "0.0.0.0" },
       });
       setSnmpReceiverStatus(`Listening on ${result.address}:${result.port}`);
+      setSnmpReceiverActive(true);
+    } catch (err) {
+      setSnmpReceiverStatus(`Receiver error: ${String(err)}`);
+      setSnmpReceiverActive(false);
+    }
+  };
+
+  const handleSnmpStopReceiver = async () => {
+    try {
+      await window.fieldlink.snmp.stopReceiver();
+      setSnmpReceiverStatus("Not listening");
+      setSnmpReceiverActive(false);
     } catch (err) {
       setSnmpReceiverStatus(`Receiver error: ${String(err)}`);
     }
@@ -815,7 +828,11 @@ export default function App() {
               <h3>Trap Receiver</h3>
               <p className="helper-text">Listen on 0.0.0.0:162 for v1/v2c/v3 traps.</p>
               <div className="card-actions">
-                <button className="secondary" onClick={handleSnmpConfigure}>Start Listening</button>
+                {snmpReceiverActive ? (
+                  <button className="secondary" onClick={handleSnmpStopReceiver}>Stop Listening</button>
+                ) : (
+                  <button className="secondary" onClick={handleSnmpConfigure}>Start Listening</button>
+                )}
                 <button className="ghost" onClick={exportTrapCsv}>Export Trap CSV</button>
               </div>
               <p className="helper-text">{snmpReceiverStatus}</p>
