@@ -12,6 +12,7 @@ type PollingItem = {
   id: string;
   name: string;
   functionType: Exclude<ModbusFunction, "write">;
+  address: number;
   start: number;
   count: number;
   intervalMs: number;
@@ -68,9 +69,10 @@ export default function App() {
 
   const [pollName, setPollName] = useState<string>("Supply Temp");
   const [pollStart, setPollStart] = useState<number>(1);
-  const [pollCount, setPollCount] = useState<number>(2);
+  const [pollCount, setPollCount] = useState<number>(1);
   const [pollInterval, setPollInterval] = useState<number>(1000);
   const [pollFunction, setPollFunction] = useState<Exclude<ModbusFunction, "write">>("holding");
+  const [pollSlaveId, setPollSlaveId] = useState<number>(modbusAddress);
   const [pollItems, setPollItems] = useState<PollingItem[]>([]);
   const [pollLogs, setPollLogs] = useState<PollingLog[]>([]);
 
@@ -104,14 +106,19 @@ export default function App() {
     setStatus("Serial disconnected");
   };
 
-  const runModbusRead = async (functionType: Exclude<ModbusFunction, "write">, start: number, count: number) => {
+  const runModbusRead = async (
+    functionType: Exclude<ModbusFunction, "write">,
+    start: number,
+    count: number,
+    address = modbusAddress
+  ) => {
     if (!window.fieldlink.modbus) {
       throw new Error("Modbus bridge not available");
     }
     if (functionType === "holding") {
-      return window.fieldlink.modbus.readHolding({ address: modbusAddress, start, count });
+      return window.fieldlink.modbus.readHolding({ address, start, count });
     }
-    return window.fieldlink.modbus.readInput({ address: modbusAddress, start, count });
+    return window.fieldlink.modbus.readInput({ address, start, count });
   };
 
   const handleModbusAction = async () => {
@@ -138,7 +145,7 @@ export default function App() {
     }
   };
 
-  const handleAddPoll = () => {
+  const handleAddPoll = (startOverride?: number) => {
     const id = crypto.randomUUID();
     setPollItems((items) => [
       ...items,
@@ -146,12 +153,19 @@ export default function App() {
         id,
         name: pollName,
         functionType: pollFunction,
-        start: pollStart,
+        address: pollSlaveId,
+        start: startOverride ?? pollStart,
         count: pollCount,
         intervalMs: pollInterval,
         enabled: true,
       },
     ]);
+  };
+
+  const handleAddNextPoll = () => {
+    const nextStart = pollStart + pollCount;
+    handleAddPoll(nextStart);
+    setPollStart(nextStart);
   };
 
   const handleTogglePoll = (id: string) => {
@@ -213,7 +227,7 @@ export default function App() {
       .map((item) =>
         setInterval(async () => {
           try {
-            const result = await runModbusRead(item.functionType, item.start, item.count);
+            const result = await runModbusRead(item.functionType, item.start, item.count, item.address);
             const timestamp = formatTimestamp(new Date());
             setPollItems((items) =>
               items.map((existing) =>
@@ -265,7 +279,7 @@ export default function App() {
       );
 
     return () => timers.forEach((timer) => clearInterval(timer));
-  }, [pollItems, modbusAddress]);
+  }, [pollItems]);
 
   return (
     <div className="app">
@@ -465,21 +479,32 @@ export default function App() {
               </label>
               <div className="field-row">
                 <label className="field">
+                  Slave ID
+                  <input type="number" min={1} max={247} value={pollSlaveId} onChange={(e) => setPollSlaveId(Number(e.target.value))} />
+                </label>
+                <label className="field">
                   Start
                   <input type="number" min={0} value={pollStart} onChange={(e) => setPollStart(Number(e.target.value))} />
                 </label>
+              </div>
+              <div className="field-row">
                 <label className="field">
                   Count
                   <input type="number" min={1} value={pollCount} onChange={(e) => setPollCount(Number(e.target.value))} />
                 </label>
+                <label className="field">
+                  Interval (ms)
+                  <input type="number" min={250} value={pollInterval} onChange={(e) => setPollInterval(Number(e.target.value))} />
+                </label>
               </div>
-              <label className="field">
-                Interval (ms)
-                <input type="number" min={250} value={pollInterval} onChange={(e) => setPollInterval(Number(e.target.value))} />
-              </label>
-              <button className="secondary" onClick={handleAddPoll}>
-                Add Poll
-              </button>
+              <div className="card-actions">
+                <button className="secondary" onClick={() => handleAddPoll()}>
+                  Add Poll
+                </button>
+                <button className="ghost" onClick={handleAddNextPoll}>
+                  Add Next
+                </button>
+              </div>
             </div>
 
             <div className="card">
@@ -491,7 +516,7 @@ export default function App() {
                     <div>
                       <strong>{item.name}</strong>
                       <div className="helper-text">
-                        {item.functionType} @ {item.start} ({item.count}) every {item.intervalMs}ms
+                        {item.functionType} @ {item.start} ({item.count}) every {item.intervalMs}ms · ID {item.address}
                       </div>
                       <div className="helper-text">
                         {item.lastUpdated
@@ -523,6 +548,7 @@ export default function App() {
                     <tr>
                       <th>Name</th>
                       <th>Function</th>
+                      <th>Slave</th>
                       <th>Start</th>
                       <th>Count</th>
                       <th>Latest</th>
@@ -534,6 +560,7 @@ export default function App() {
                       <tr key={item.id}>
                         <td>{item.name}</td>
                         <td>{item.functionType}</td>
+                        <td>{item.address}</td>
                         <td>{item.start}</td>
                         <td>{item.count}</td>
                         <td>{item.lastValues ? item.lastValues.join(", ") : "-"}</td>
