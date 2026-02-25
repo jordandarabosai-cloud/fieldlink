@@ -67,7 +67,7 @@ export default function App() {
   const [writeValues, setWriteValues] = useState<string>("0, 0, 0, 0");
   const [modbusResponse, setModbusResponse] = useState<string>("");
 
-  const [pollName, setPollName] = useState<string>("Supply Temp");
+  const [pollName, setPollName] = useState<string>("Reg 1");
   const [pollStart, setPollStart] = useState<number>(1);
   const [pollCount, setPollCount] = useState<number>(1);
   const [pollInterval, setPollInterval] = useState<number>(1000);
@@ -220,6 +220,10 @@ export default function App() {
   useEffect(() => {
     refreshPorts();
   }, []);
+
+  useEffect(() => {
+    setPollName(`Reg ${pollStart}`);
+  }, [pollStart]);
 
   useEffect(() => {
     const timers = pollItems
