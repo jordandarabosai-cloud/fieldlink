@@ -126,6 +126,12 @@ export default function App() {
   const [consoleConnected, setConsoleConnected] = useState<boolean>(false);
   const [consoleLog, setConsoleLog] = useState<string>("");
   const [consoleInput, setConsoleInput] = useState<string>("");
+  const [consoleAutoScroll, setConsoleAutoScroll] = useState<boolean>(true);
+  const [consoleLocalEcho, setConsoleLocalEcho] = useState<boolean>(false);
+  const [consoleTimestamp, setConsoleTimestamp] = useState<boolean>(false);
+  const [consoleCrLf, setConsoleCrLf] = useState<boolean>(true);
+  const [consoleFontSize, setConsoleFontSize] = useState<number>(12);
+  const consoleOutputRef = useRef<HTMLDivElement | null>(null);
   const [snmpTrapTargetHost, setSnmpTrapTargetHost] = useState<string>("127.0.0.1");
   const [snmpTrapTargetPort, setSnmpTrapTargetPort] = useState<number>(162);
   const [snmpTrapOid, setSnmpTrapOid] = useState<string>("1.3.6.1.6.3.1.1.5.1");
@@ -222,8 +228,13 @@ export default function App() {
 
   const sendConsoleInput = async () => {
     if (!consoleInput) return;
+    const payload = consoleInput + (consoleCrLf ? "\r\n" : "\n");
     try {
-      await window.fieldlink.serial.consoleWrite({ data: consoleInput + "\n" });
+      await window.fieldlink.serial.consoleWrite({ data: payload });
+      if (consoleLocalEcho) {
+        const stamp = consoleTimestamp ? `${formatTimestamp(new Date())} ` : "";
+        setConsoleLog((log) => (log + stamp + consoleInput + (consoleCrLf ? "\r\n" : "\n")).slice(-20000));
+      }
       setConsoleInput("");
     } catch (err) {
       setStatus(`Console write failed: ${String(err)}`);
@@ -564,9 +575,23 @@ export default function App() {
   }, []);
   useEffect(() => {
     window.fieldlink.serial.onConsoleData((payload) => {
-      setConsoleLog((log) => (log + payload.data).slice(-20000));
+      const normalized = payload.data.replace(/
+/g, "
+").replace(/
+/g, "
+");
+      const stamp = consoleTimestamp ? `${formatTimestamp(new Date())} ` : "";
+      const text = consoleTimestamp
+        ? normalized
+            .split(/
+/)
+            .map((line, idx, arr) => (line || idx < arr.length - 1 ? stamp + line : ""))
+            .join("
+")
+        : normalized;
+      setConsoleLog((log) => (log + text).slice(-20000));
     });
-  }, []);
+  }, [consoleTimestamp]);
 
 
   useEffect(() => {
@@ -588,6 +613,14 @@ export default function App() {
   useEffect(() => {
     snmpCounterLastRef.current = null;
   }, [snmpCounterIfIndex]);
+
+  useEffect(() => {
+    if (!consoleAutoScroll) return;
+    const el = consoleOutputRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [consoleLog, consoleAutoScroll]);
 
   useEffect(() => {
     if (!snmpCounterActive) return;
@@ -1042,7 +1075,55 @@ export default function App() {
                   Send
                 </button>
               </div>
-              <div className="console-output">
+              <div className="field-row">
+                <label className="field">
+                  Font size
+                  <input
+                    type="number"
+                    min={10}
+                    max={22}
+                    value={consoleFontSize}
+                    onChange={(e) => setConsoleFontSize(Number(e.target.value))}
+                  />
+                </label>
+                <label className="field inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={consoleAutoScroll}
+                    onChange={(e) => setConsoleAutoScroll(e.target.checked)}
+                  />
+                  Auto-scroll
+                </label>
+                <label className="field inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={consoleLocalEcho}
+                    onChange={(e) => setConsoleLocalEcho(e.target.checked)}
+                  />
+                  Local echo
+                </label>
+                <label className="field inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={consoleCrLf}
+                    onChange={(e) => setConsoleCrLf(e.target.checked)}
+                  />
+                  CR/LF
+                </label>
+                <label className="field inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={consoleTimestamp}
+                    onChange={(e) => setConsoleTimestamp(e.target.checked)}
+                  />
+                  Timestamps
+                </label>
+                <button className="ghost" onClick={() => navigator.clipboard.writeText(consoleLog)}>
+                  Copy
+                </button>
+                <button className="ghost" onClick={() => setConsoleLog("")}>Clear</button>
+              </div>
+              <div className="console-output" ref={consoleOutputRef} style={{ fontSize: `${consoleFontSize}px` }}>
                 <pre>{consoleLog || "No data yet."}</pre>
               </div>
             </div>

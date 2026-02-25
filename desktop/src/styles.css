@@ -215,7 +215,7 @@ button.ghost {
   color: #c9d1d9;
   border-radius: 10px;
   padding: 12px;
-  max-height: 300px;
+  height: 360px;
   overflow: auto;
   font-family: "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 12px;
@@ -224,4 +224,14 @@ button.ghost {
 .console-output pre {
   margin: 0;
   white-space: pre-wrap;
+}
+
+.inline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-toggle input {
+  width: auto;
 }
