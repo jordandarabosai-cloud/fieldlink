@@ -4,6 +4,7 @@ const { SerialPort } = require("serialport");
 
 const isDev = !app.isPackaged;
 let activePort = null;
+const modbusStore = new Map();
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -20,6 +21,22 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, "../dist/index.html"));
   }
+}
+
+function ensureSerialOpen() {
+  if (!activePort || !activePort.isOpen) {
+    throw new Error("Serial port not open");
+  }
+}
+
+function readRegisters(start, count) {
+  const values = [];
+  for (let i = 0; i < count; i += 1) {
+    const address = start + i;
+    const stored = modbusStore.get(address);
+    values.push(typeof stored === "number" ? stored : 0);
+  }
+  return values;
 }
 
 ipcMain.handle("serial:list", async () => {
@@ -58,6 +75,26 @@ ipcMain.handle("serial:close", async () => {
   return new Promise((resolve) => {
     activePort.close(() => resolve({ open: false }));
   });
+});
+
+ipcMain.handle("modbus:readHolding", async (_event, options) => {
+  ensureSerialOpen();
+  const values = readRegisters(options.start, options.count);
+  return { values };
+});
+
+ipcMain.handle("modbus:readInput", async (_event, options) => {
+  ensureSerialOpen();
+  const values = readRegisters(options.start, options.count);
+  return { values };
+});
+
+ipcMain.handle("modbus:writeMultiple", async (_event, options) => {
+  ensureSerialOpen();
+  options.values.forEach((value, index) => {
+    modbusStore.set(options.start + index, value);
+  });
+  return { written: options.values.length };
 });
 
 app.whenReady().then(() => {

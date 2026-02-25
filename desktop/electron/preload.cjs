@@ -7,4 +7,9 @@ contextBridge.exposeInMainWorld("fieldlink", {
     open: (options) => ipcRenderer.invoke("serial:open", options),
     close: () => ipcRenderer.invoke("serial:close"),
   },
+  modbus: {
+    readHolding: (options) => ipcRenderer.invoke("modbus:readHolding", options),
+    readInput: (options) => ipcRenderer.invoke("modbus:readInput", options),
+    writeMultiple: (options) => ipcRenderer.invoke("modbus:writeMultiple", options),
+  },
 });
