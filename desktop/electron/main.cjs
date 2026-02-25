@@ -91,24 +91,23 @@ function startSnmpReceiver(config) {
       port: snmpReceiverConfig.port,
       transport: "udp4",
     },
-    (error) => {
+    (error, msg) => {
       if (error) {
         console.error("SNMP receiver error", error);
+        return;
       }
+
+      const payload = {
+        receivedAt: new Date().toISOString(),
+        raw: msg,
+        varbinds: msg?.pdu?.varbinds || [],
+      };
+
+      BrowserWindow.getAllWindows().forEach((win) => {
+        win.webContents.send("snmp:trap", payload);
+      });
     }
   );
-
-  snmpReceiver.on("trap", (msg) => {
-    const payload = {
-      receivedAt: new Date().toISOString(),
-      raw: msg,
-      varbinds: msg?.pdu?.varbinds || [],
-    };
-
-    BrowserWindow.getAllWindows().forEach((win) => {
-      win.webContents.send("snmp:trap", payload);
-    });
-  });
 }
 
 ipcMain.handle("serial:list", async () => {
