@@ -7,6 +7,7 @@ const snmp = require("net-snmp");
 const isDev = !app.isPackaged;
 let activePort = null;
 let modbusClient = null;
+let consolePort = null;
 let modbusQueue = Promise.resolve();
 const MODBUS_TIMEOUT_MS = 2000;
 
@@ -128,6 +129,60 @@ ipcMain.handle("serial:list", async () => {
     friendlyName: port.friendlyName || port.manufacturer || "Serial Device",
     serialNumber: port.serialNumber || null,
   }));
+});
+
+ipcMain.handle("serial:consoleOpen", async (_event, options) => {
+  if (consolePort) {
+    await new Promise((resolve) => consolePort.close(() => resolve()));
+  }
+
+  consolePort = new SerialPort({
+    path: options.path,
+    baudRate: options.baudRate,
+    parity: options.parity,
+    dataBits: 8,
+    stopBits: 1,
+    autoOpen: false,
+  });
+
+  return new Promise((resolve, reject) => {
+    consolePort.open((error) => {
+      if (error) {
+        consolePort = null;
+        reject(new Error(error?.message || String(error)));
+        return;
+      }
+
+      consolePort.on("data", (data) => {
+        const payload = { data: data.toString("utf8") };
+        BrowserWindow.getAllWindows().forEach((win) => {
+          win.webContents.send("serial:consoleData", payload);
+        });
+      });
+
+      resolve({ open: true, path: options.path });
+    });
+  });
+});
+
+ipcMain.handle("serial:consoleWrite", async (_event, options) => {
+  if (!consolePort) throw new Error("Console port not open");
+  return new Promise((resolve, reject) => {
+    consolePort.write(options.data, (error) => {
+      if (error) return reject(error);
+      resolve({ written: options.data.length });
+    });
+  });
+});
+
+ipcMain.handle("serial:consoleClose", async () => {
+  if (!consolePort) return { open: false };
+  return new Promise((resolve) => {
+    consolePort.close(() => {
+      consolePort = null;
+      resolve({ open: false });
+    });
+  });
 });
 
 ipcMain.handle("serial:open", async (_event, options) => {

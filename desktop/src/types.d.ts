@@ -10,6 +10,10 @@ declare global {
         >;
         open: (options: { path: string; baudRate: number; parity: "none" | "even" | "odd" }) => Promise<{ open: boolean; path?: string }>;
         close: () => Promise<{ open: boolean }>;
+        consoleOpen: (options: { path: string; baudRate: number; parity: "none" | "even" | "odd" }) => Promise<{ open: boolean; path?: string }>;
+        consoleWrite: (options: { data: string }) => Promise<{ written: number }>;
+        consoleClose: () => Promise<{ open: boolean }>;
+        onConsoleData: (callback: (payload: { data: string }) => void) => void;
       };
       modbus: {
         readHolding: (options: { address: number; start: number; count: number }) => Promise<{ values: number[] }>;

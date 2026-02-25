@@ -76,7 +76,7 @@ const toCsvValue = (value: string) =>
     : value;
 
 export default function App() {
-  const [activePage, setActivePage] = useState<"connections" | "discovery" | "polling" | "logs" | "snmp">("connections");
+  const [activePage, setActivePage] = useState<"connections" | "discovery" | "polling" | "logs" | "snmp" | "console">("connections");
   const [ports, setPorts] = useState<SerialPort[]>([]);
   const [selectedPort, setSelectedPort] = useState<string>("");
   const [baudRate, setBaudRate] = useState<number>(115200);
@@ -120,6 +120,12 @@ export default function App() {
   const [snmpTrapAddress, setSnmpTrapAddress] = useState<string>("0.0.0.0");
   const [snmpTrapCommunity, setSnmpTrapCommunity] = useState<string>("public");
   const [snmpActionStatus, setSnmpActionStatus] = useState<string>("");
+  const [consolePortPath, setConsolePortPath] = useState<string>("");
+  const [consoleBaudRate, setConsoleBaudRate] = useState<number>(115200);
+  const [consoleParity, setConsoleParity] = useState<"none" | "even" | "odd">("none");
+  const [consoleConnected, setConsoleConnected] = useState<boolean>(false);
+  const [consoleLog, setConsoleLog] = useState<string>("");
+  const [consoleInput, setConsoleInput] = useState<string>("");
   const [snmpTrapTargetHost, setSnmpTrapTargetHost] = useState<string>("127.0.0.1");
   const [snmpTrapTargetPort, setSnmpTrapTargetPort] = useState<number>(162);
   const [snmpTrapOid, setSnmpTrapOid] = useState<string>("1.3.6.1.6.3.1.1.5.1");
@@ -186,6 +192,43 @@ export default function App() {
       return window.fieldlink.modbus.readHolding({ address, start, count });
     }
     return window.fieldlink.modbus.readInput({ address, start, count });
+  };
+
+  const openConsole = async () => {
+    if (!consolePortPath) {
+      setStatus("Select a console port first.");
+      return;
+    }
+    try {
+      await window.fieldlink.serial.consoleOpen({
+        path: consolePortPath,
+        baudRate: consoleBaudRate,
+        parity: consoleParity,
+      });
+      setConsoleConnected(true);
+    } catch (err) {
+      setStatus(`Console open failed: ${String(err)}`);
+      setConsoleConnected(false);
+    }
+  };
+
+  const closeConsole = async () => {
+    try {
+      await window.fieldlink.serial.consoleClose();
+    } finally {
+      setConsoleConnected(false);
+    }
+  };
+
+  const sendConsoleInput = async () => {
+    if (!consoleInput) return;
+    try {
+      await window.fieldlink.serial.consoleWrite({ data: consoleInput + "
+" });
+      setConsoleInput("");
+    } catch (err) {
+      setStatus(`Console write failed: ${String(err)}`);
+    }
   };
 
   const handleModbusAction = async () => {
@@ -520,6 +563,12 @@ export default function App() {
   useEffect(() => {
     refreshPorts();
   }, []);
+  useEffect(() => {
+    window.fieldlink.serial.onConsoleData((payload) => {
+      setConsoleLog((log) => (log + payload.data).slice(-20000));
+    });
+  }, []);
+
 
   useEffect(() => {
     setPollName(`Reg ${pollStart}`);
@@ -637,6 +686,9 @@ export default function App() {
           <button className={activePage === "polling" ? "active" : ""} onClick={() => setActivePage("polling")}>
             Polling
           </button>
+          <button className={activePage === "console" ? "active" : ""} onClick={() => setActivePage("console")}>
+            Console
+          </button>
           <button className={activePage === "snmp" ? "active" : ""} onClick={() => setActivePage("snmp")}>
             SNMP
           </button>
@@ -653,6 +705,7 @@ export default function App() {
               {activePage === "connections" && "Connect to your FieldLink device or any RS-485/RS-232 adapter."}
               {activePage === "discovery" && "Scan the bus and identify devices (Phase 2)."}
               {activePage === "polling" && "Build repeatable polling sets and export results."}
+              {activePage === "console" && "Open a serial console session."}
               {activePage === "snmp" && "Query devices with SNMP and listen for traps."}
               {activePage === "logs" && "Review recent polling and Modbus activity."}
             </p>
@@ -921,6 +974,78 @@ export default function App() {
                   </tbody>
                 </table>
               )}
+            </div>
+          </section>
+        )}
+
+        {activePage === "console" && (
+          <section className="grid">
+            <div className="card">
+              <h3>Serial Console</h3>
+              <label className="field">
+                Port
+                <select value={consolePortPath} onChange={(e) => setConsolePortPath(e.target.value)}>
+                  <option value="">Select a port</option>
+                  {ports.map((port) => (
+                    <option key={port.path} value={port.path}>
+                      {port.friendlyName} ({port.path})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="field-row">
+                <label className="field">
+                  Baud Rate
+                  <select value={consoleBaudRate} onChange={(e) => setConsoleBaudRate(Number(e.target.value))}>
+                    {baudRates.map((rate) => (
+                      <option key={rate} value={rate}>
+                        {rate}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  Parity
+                  <select value={consoleParity} onChange={(e) => setConsoleParity(e.target.value as "none" | "even" | "odd")}>
+                    <option value="none">None</option>
+                    <option value="even">Even</option>
+                    <option value="odd">Odd</option>
+                  </select>
+                </label>
+              </div>
+              <div className="card-actions">
+                {consoleConnected ? (
+                  <button className="secondary" onClick={closeConsole}>Disconnect</button>
+                ) : (
+                  <button className="secondary" onClick={openConsole}>Connect</button>
+                )}
+                <button className="ghost" onClick={() => setConsoleLog("")}>Clear Log</button>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3>Console Output</h3>
+              <div className="console-output">
+                <pre>{consoleLog || "No data yet."}</pre>
+              </div>
+              <div className="field-row">
+                <label className="field" style={{ flex: 1 }}>
+                  Send
+                  <input
+                    value={consoleInput}
+                    onChange={(e) => setConsoleInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        sendConsoleInput();
+                      }
+                    }}
+                  />
+                </label>
+                <button className="secondary" onClick={sendConsoleInput}>
+                  Send
+                </button>
+              </div>
             </div>
           </section>
         )}

@@ -6,6 +6,10 @@ contextBridge.exposeInMainWorld("fieldlink", {
     listPorts: () => ipcRenderer.invoke("serial:list"),
     open: (options) => ipcRenderer.invoke("serial:open", options),
     close: () => ipcRenderer.invoke("serial:close"),
+    consoleOpen: (options) => ipcRenderer.invoke("serial:consoleOpen", options),
+    consoleWrite: (options) => ipcRenderer.invoke("serial:consoleWrite", options),
+    consoleClose: () => ipcRenderer.invoke("serial:consoleClose"),
+    onConsoleData: (callback) => ipcRenderer.on("serial:consoleData", (_event, payload) => callback(payload)),
   },
   modbus: {
     readHolding: (options) => ipcRenderer.invoke("modbus:readHolding", options),
