@@ -6,6 +6,8 @@ const ModbusRTU = require("modbus-serial");
 const isDev = !app.isPackaged;
 let activePort = null;
 let modbusClient = null;
+let modbusQueue = Promise.resolve();
+const MODBUS_TIMEOUT_MS = 2000;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -28,6 +30,20 @@ function ensureSerialOpen() {
   if (!activePort || !modbusClient) {
     throw new Error("Serial port not open");
   }
+}
+
+function enqueueModbus(task) {
+  const next = modbusQueue.then(task, task);
+  modbusQueue = next.catch(() => {});
+  return next;
+}
+
+function withTimeout(promise, timeoutMs, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 ipcMain.handle("serial:list", async () => {
@@ -53,6 +69,7 @@ ipcMain.handle("serial:open", async (_event, options) => {
       dataBits: 8,
       stopBits: 1,
     });
+    modbusClient.setTimeout(MODBUS_TIMEOUT_MS);
     activePort = options.path;
     return { open: true, path: options.path };
   } catch (error) {
@@ -76,23 +93,53 @@ ipcMain.handle("serial:close", async () => {
 
 ipcMain.handle("modbus:readHolding", async (_event, options) => {
   ensureSerialOpen();
-  modbusClient.setID(options.address);
-  const response = await modbusClient.readHoldingRegisters(options.start, options.count);
-  return { values: response.data };
+  return enqueueModbus(async () => {
+    try {
+      modbusClient.setID(options.address);
+      const response = await withTimeout(
+        modbusClient.readHoldingRegisters(options.start, options.count),
+        MODBUS_TIMEOUT_MS,
+        "Read holding registers"
+      );
+      return { values: response.data };
+    } catch (error) {
+      throw new Error(error?.message || String(error));
+    }
+  });
 });
 
 ipcMain.handle("modbus:readInput", async (_event, options) => {
   ensureSerialOpen();
-  modbusClient.setID(options.address);
-  const response = await modbusClient.readInputRegisters(options.start, options.count);
-  return { values: response.data };
+  return enqueueModbus(async () => {
+    try {
+      modbusClient.setID(options.address);
+      const response = await withTimeout(
+        modbusClient.readInputRegisters(options.start, options.count),
+        MODBUS_TIMEOUT_MS,
+        "Read input registers"
+      );
+      return { values: response.data };
+    } catch (error) {
+      throw new Error(error?.message || String(error));
+    }
+  });
 });
 
 ipcMain.handle("modbus:writeMultiple", async (_event, options) => {
   ensureSerialOpen();
-  modbusClient.setID(options.address);
-  await modbusClient.writeRegisters(options.start, options.values);
-  return { written: options.values.length };
+  return enqueueModbus(async () => {
+    try {
+      modbusClient.setID(options.address);
+      await withTimeout(
+        modbusClient.writeRegisters(options.start, options.values),
+        MODBUS_TIMEOUT_MS,
+        "Write registers"
+      );
+      return { written: options.values.length };
+    } catch (error) {
+      throw new Error(error?.message || String(error));
+    }
+  });
 });
 
 app.whenReady().then(() => {
