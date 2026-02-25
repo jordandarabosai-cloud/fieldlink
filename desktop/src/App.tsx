@@ -512,6 +512,38 @@ export default function App() {
                 ))}
               </ul>
             </div>
+
+            <div className="card">
+              <h3>Latest Values</h3>
+              {pollItems.length === 0 ? (
+                <p className="helper-text">No polls yet.</p>
+              ) : (
+                <table className="log-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Function</th>
+                      <th>Start</th>
+                      <th>Count</th>
+                      <th>Latest</th>
+                      <th>Updated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pollItems.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.name}</td>
+                        <td>{item.functionType}</td>
+                        <td>{item.start}</td>
+                        <td>{item.count}</td>
+                        <td>{item.lastValues ? item.lastValues.join(", ") : "-"}</td>
+                        <td>{item.lastUpdated || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </section>
         )}
 
