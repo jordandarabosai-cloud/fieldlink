@@ -3,6 +3,10 @@
   color: #1f2937;
 }
 
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   background: #f8fafc;
@@ -38,6 +42,96 @@ body {
   cursor: pointer;
 }
 
+.sidebar button.active {
+  background: #2563eb;
+}
+
 .main {
   padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.page-header h2 {
+  margin: 0 0 8px 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+input,
+select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+button {
+  border-radius: 8px;
+  border: none;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.primary {
+  background: #2563eb;
+  color: white;
+}
+
+button.secondary {
+  background: #0ea5e9;
+  color: white;
+}
+
+button.ghost {
+  background: #e2e8f0;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.status-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  color: #475569;
+  display: grid;
+  gap: 6px;
 }
