@@ -103,6 +103,7 @@ export default function App() {
   const [snmpTraps, setSnmpTraps] = useState<TrapEntry[]>([]);
   const [snmpReceiverStatus, setSnmpReceiverStatus] = useState<string>("Not listening");
   const [snmpReceiverActive, setSnmpReceiverActive] = useState<boolean>(false);
+  const [snmpTrapPort, setSnmpTrapPort] = useState<number>(1162);
   const [snmpActionStatus, setSnmpActionStatus] = useState<string>("");
 
   const refreshPorts = async () => {
@@ -276,7 +277,7 @@ export default function App() {
   const handleSnmpConfigure = async () => {
     try {
       const result = await window.fieldlink.snmp.configure({
-        receiver: { port: 162, address: "0.0.0.0" },
+        receiver: { port: snmpTrapPort, address: "0.0.0.0" },
       });
       setSnmpReceiverStatus(`Listening on ${result.address}:${result.port}`);
       setSnmpReceiverActive(true);
@@ -826,7 +827,18 @@ export default function App() {
 
             <div className="card">
               <h3>Trap Receiver</h3>
-              <p className="helper-text">Listen on 0.0.0.0:162 for v1/v2c/v3 traps.</p>
+              <p className="helper-text">Listen on 0.0.0.0:{snmpTrapPort} for v1/v2c/v3 traps. (Port 1162 avoids macOS privileged port restrictions.)</p>
+              <div className="field-row">
+                <label className="field">
+                  Port
+                  <input
+                    type="number"
+                    min={1}
+                    value={snmpTrapPort}
+                    onChange={(e) => setSnmpTrapPort(Number(e.target.value))}
+                  />
+                </label>
+              </div>
               <div className="card-actions">
                 {snmpReceiverActive ? (
                   <button className="secondary" onClick={handleSnmpStopReceiver}>Stop Listening</button>
