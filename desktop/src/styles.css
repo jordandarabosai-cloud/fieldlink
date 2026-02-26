@@ -268,3 +268,17 @@ button.ghost {
 .console-controls .field {
   margin-bottom: 0;
 }
+
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.device-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+}

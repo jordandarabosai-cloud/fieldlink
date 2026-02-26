@@ -41,6 +41,15 @@ type RegisterMapEntry = {
   notes?: string;
 };
 
+type DiscoveryDevice = {
+  id: string;
+  source: "modbus" | "snmp" | "bacnet";
+  address: string;
+  name: string;
+  detail?: string;
+  lastSeen: string;
+};
+
 type SnmpVarbind = {
   oid: string;
   type?: string;
@@ -110,6 +119,14 @@ export default function App() {
   const [pollLogs, setPollLogs] = useState<PollingLog[]>([]);
   const [registerMap, setRegisterMap] = useState<RegisterMapEntry[]>([]);
   const [registerMapStatus, setRegisterMapStatus] = useState<string>("");
+  const [discoveryDevices, setDiscoveryDevices] = useState<DiscoveryDevice[]>([]);
+  const [discoveryStatus, setDiscoveryStatus] = useState<string>("");
+  const [modbusScanStart, setModbusScanStart] = useState<number>(1);
+  const [modbusScanEnd, setModbusScanEnd] = useState<number>(247);
+  const [modbusScanRegister, setModbusScanRegister] = useState<number>(1);
+  const [modbusScanCount, setModbusScanCount] = useState<number>(1);
+  const [modbusScanFunction, setModbusScanFunction] = useState<Exclude<ModbusFunction, "write">>("holding");
+  const [snmpDiscoveryHosts, setSnmpDiscoveryHosts] = useState<string>("");
 
   const [snmpHost, setSnmpHost] = useState<string>("127.0.0.1");
   const [snmpPort, setSnmpPort] = useState<number>(161);
@@ -403,6 +420,89 @@ export default function App() {
   };
 
   const findRegisterMap = (register: number) => registerMap.find((entry) => entry.register === register);
+
+  const addDiscoveryDevice = (device: Omit<DiscoveryDevice, "id" | "lastSeen">) => {
+    const entry: DiscoveryDevice = {
+      ...device,
+      id: crypto.randomUUID(),
+      lastSeen: formatTimestamp(new Date()),
+    };
+    setDiscoveryDevices((devices) => [entry, ...devices]);
+  };
+
+  const handleModbusDiscovery = async () => {
+    setDiscoveryStatus("Scanning Modbus IDs...");
+    const start = Math.max(1, Math.min(modbusScanStart, modbusScanEnd));
+    const end = Math.max(start, modbusScanEnd);
+    let found = 0;
+    for (let id = start; id <= end; id += 1) {
+      try {
+        const result = await runModbusRead(modbusScanFunction, modbusScanRegister, modbusScanCount, id);
+        addDiscoveryDevice({
+          source: "modbus",
+          address: `ID ${id}`,
+          name: `Modbus Device ${id}`,
+          detail: `Read ${result.values.length} regs @ ${modbusScanRegister}`,
+        });
+        found += 1;
+      } catch (err) {
+        // ignore
+      }
+    }
+    setDiscoveryStatus(`Modbus scan complete. Found ${found} device(s).`);
+  };
+
+  const handleSnmpDiscovery = async () => {
+    const hosts = snmpDiscoveryHosts
+      .split(/[\s,]+/)
+      .map((h) => h.trim())
+      .filter(Boolean);
+    if (!hosts.length) {
+      setDiscoveryStatus("Enter at least one SNMP host IP.");
+      return;
+    }
+    setDiscoveryStatus("Scanning SNMP hosts...");
+    let found = 0;
+    for (const host of hosts) {
+      try {
+        const result = await window.fieldlink.snmp.get({
+          host,
+          port: snmpPort,
+          version: snmpVersion,
+          community: snmpCommunity,
+          v3: {
+            user: snmpV3User,
+            authProtocol: snmpV3AuthProtocol,
+            authKey: snmpV3AuthKey,
+            privProtocol: snmpV3PrivProtocol,
+            privKey: snmpV3PrivKey,
+          },
+          oids: ["1.3.6.1.2.1.1.1.0"],
+        });
+        const descr = result.varbinds?.[0]?.value ? String(result.varbinds[0].value) : "SNMP device";
+        addDiscoveryDevice({
+          source: "snmp",
+          address: host,
+          name: descr,
+          detail: "sysDescr.0",
+        });
+        found += 1;
+      } catch (err) {
+        // ignore
+      }
+    }
+    setDiscoveryStatus(`SNMP scan complete. Found ${found} device(s).`);
+  };
+
+  const handleBacnetDiscovery = async () => {
+    setDiscoveryStatus("BACnet MS/TP discovery placeholder (not yet implemented).");
+  };
+
+  const handleDiscoveryAll = async () => {
+    await handleModbusDiscovery();
+    await handleSnmpDiscovery();
+    await handleBacnetDiscovery();
+  };
 
   const exportCsv = () => {
     if (pollLogs.length === 0) {
@@ -991,11 +1091,108 @@ export default function App() {
         {activePage === "discovery" && (
           <section className="grid">
             <div className="card">
-              <h3>Discovery is next</h3>
-              <p>Phase 2 will add device discovery, live bus scans, and device detail cards.</p>
-              <button className="secondary" disabled>
-                Scan Bus (Phase 2)
-              </button>
+              <h3>Modbus RTU Discovery</h3>
+              <p className="helper-text">Scan slave IDs and probe registers to detect devices.</p>
+              <div className="field-row">
+                <label className="field">
+                  Start ID
+                  <input
+                    type="number"
+                    min={1}
+                    max={247}
+                    value={modbusScanStart}
+                    onChange={(e) => setModbusScanStart(Number(e.target.value))}
+                  />
+                </label>
+                <label className="field">
+                  End ID
+                  <input
+                    type="number"
+                    min={1}
+                    max={247}
+                    value={modbusScanEnd}
+                    onChange={(e) => setModbusScanEnd(Number(e.target.value))}
+                  />
+                </label>
+              </div>
+              <div className="field-row">
+                <label className="field">
+                  Function
+                  <select value={modbusScanFunction} onChange={(e) => setModbusScanFunction(e.target.value as Exclude<ModbusFunction, "write">)}>
+                    <option value="holding">Holding</option>
+                    <option value="input">Input</option>
+                  </select>
+                </label>
+                <label className="field">
+                  Register
+                  <input
+                    type="number"
+                    min={0}
+                    value={modbusScanRegister}
+                    onChange={(e) => setModbusScanRegister(Number(e.target.value))}
+                  />
+                </label>
+                <label className="field">
+                  Count
+                  <input
+                    type="number"
+                    min={1}
+                    value={modbusScanCount}
+                    onChange={(e) => setModbusScanCount(Number(e.target.value))}
+                  />
+                </label>
+              </div>
+              <div className="card-actions">
+                <button className="secondary" onClick={handleModbusDiscovery}>Scan Modbus</button>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3>SNMP Discovery</h3>
+              <p className="helper-text">Enter host IPs or names separated by commas/spaces.</p>
+              <label className="field">
+                Hosts
+                <input
+                  value={snmpDiscoveryHosts}
+                  onChange={(e) => setSnmpDiscoveryHosts(e.target.value)}
+                  placeholder="192.168.1.10, 192.168.1.11"
+                />
+              </label>
+              <div className="card-actions">
+                <button className="secondary" onClick={handleSnmpDiscovery}>Scan SNMP</button>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3>BACnet MS/TP Discovery</h3>
+              <p className="helper-text">BACnet MS/TP discovery will be wired in next.</p>
+              <div className="card-actions">
+                <button className="ghost" onClick={handleBacnetDiscovery}>Scan BACnet</button>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3>Discovery Results</h3>
+              <div className="card-actions">
+                <button className="ghost" onClick={handleDiscoveryAll}>Scan All</button>
+                <button className="ghost" onClick={() => setDiscoveryDevices([])}>Clear</button>
+              </div>
+              {discoveryStatus && <p className="helper-text">{discoveryStatus}</p>}
+              {discoveryDevices.length === 0 ? (
+                <p className="helper-text">No devices found yet.</p>
+              ) : (
+                <div className="device-grid">
+                  {discoveryDevices.map((device) => (
+                    <div key={device.id} className="device-card">
+                      <strong>{device.name}</strong>
+                      <div className="helper-text">Source: {device.source}</div>
+                      <div className="helper-text">Address: {device.address}</div>
+                      {device.detail && <div className="helper-text">{device.detail}</div>}
+                      <div className="helper-text">Last seen: {device.lastSeen}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         )}
