@@ -7,9 +7,13 @@
   "scripts": {
     "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "vite build",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "cap:build": "vite build && npx cap sync"
   },
   "dependencies": {
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/core": "^8.1.0",
+    "@capacitor/ios": "^8.1.0",
     "modbus-serial": "^8.0.23",
     "net-snmp": "^3.13.0",
     "react": "^18.3.1",
