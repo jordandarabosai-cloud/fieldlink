@@ -129,6 +129,7 @@ export default function App() {
   const [consoleAutoScroll, setConsoleAutoScroll] = useState<boolean>(true);
   const [consoleLocalEcho, setConsoleLocalEcho] = useState<boolean>(false);
   const [consoleTimestamp, setConsoleTimestamp] = useState<boolean>(false);
+  const [consoleStripAnsi, setConsoleStripAnsi] = useState<boolean>(true);
   const [consoleCrLf, setConsoleCrLf] = useState<boolean>(true);
   const [consoleFontSize, setConsoleFontSize] = useState<number>(12);
   const consoleOutputRef = useRef<HTMLDivElement | null>(null);
@@ -575,7 +576,12 @@ export default function App() {
   }, []);
   useEffect(() => {
     window.fieldlink.serial.onConsoleData((payload) => {
-      const normalized = payload.data.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      let normalized = payload.data.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      if (consoleStripAnsi) {
+        normalized = normalized
+          .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "")
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+      }
       const stamp = consoleTimestamp ? `${formatTimestamp(new Date())} ` : "";
       const text = consoleTimestamp
         ? normalized
@@ -585,7 +591,7 @@ export default function App() {
         : normalized;
       setConsoleLog((log) => (log + text).slice(-20000));
     });
-  }, [consoleTimestamp]);
+  }, [consoleTimestamp, consoleStripAnsi]);
 
 
   useEffect(() => {
@@ -1112,6 +1118,14 @@ export default function App() {
                       onChange={(e) => setConsoleTimestamp(e.target.checked)}
                     />
                     Timestamps
+                  </label>
+                  <label className="inline-toggle">
+                    <input
+                      type="checkbox"
+                      checked={consoleStripAnsi}
+                      onChange={(e) => setConsoleStripAnsi(e.target.checked)}
+                    />
+                    Strip ANSI
                   </label>
                 </div>
                 <div className="console-actions">
