@@ -93,6 +93,7 @@ const toCsvValue = (value: string) =>
     : value;
 
 export default function App() {
+  const hasBridge = typeof window !== "undefined" && Boolean(window.fieldlink);
   const [activePage, setActivePage] = useState<"connections" | "discovery" | "polling" | "logs" | "snmp" | "console">("connections");
   const [ports, setPorts] = useState<SerialPort[]>([]);
   const [selectedPort, setSelectedPort] = useState<string>("");
@@ -184,6 +185,10 @@ export default function App() {
   >(null);
 
   const refreshPorts = async () => {
+    if (!hasBridge || !window.fieldlink?.serial) {
+      setStatus("Web mode: desktop bridge not available.");
+      return;
+    }
     try {
       const list = await window.fieldlink.serial.listPorts();
       setPorts(list);
@@ -196,6 +201,10 @@ export default function App() {
   };
 
   const openSerial = async () => {
+    if (!hasBridge || !window.fieldlink?.serial) {
+      setStatus("Web mode: serial bridge not available.");
+      return;
+    }
     if (!selectedPort) return;
     try {
       setStatus("Opening serial...");
@@ -208,6 +217,10 @@ export default function App() {
   };
 
   const closeSerial = async () => {
+    if (!hasBridge || !window.fieldlink?.serial) {
+      setStatus("Web mode: serial bridge not available.");
+      return;
+    }
     await window.fieldlink.serial.close();
     setSerialOpen(false);
     setStatus("Serial disconnected");
@@ -219,7 +232,7 @@ export default function App() {
     count: number,
     address = modbusAddress
   ) => {
-    if (!window.fieldlink.modbus) {
+    if (!hasBridge || !window.fieldlink?.modbus) {
       throw new Error("Modbus bridge not available");
     }
     if (functionType === "holding") {
@@ -582,6 +595,10 @@ export default function App() {
   };
 
   const handleSnmpConfigure = async () => {
+    if (!hasBridge || !window.fieldlink?.snmp) {
+      setSnmpReceiverStatus("Web mode: SNMP bridge not available.");
+      return;
+    }
     try {
       const result = await window.fieldlink.snmp.configure({
         receiver: { port: snmpTrapPort, address: snmpTrapAddress, community: snmpTrapCommunity },
@@ -595,6 +612,10 @@ export default function App() {
   };
 
   const handleSnmpStopReceiver = async () => {
+    if (!hasBridge || !window.fieldlink?.snmp) {
+      setSnmpReceiverStatus("Web mode: SNMP bridge not available.");
+      return;
+    }
     try {
       await window.fieldlink.snmp.stopReceiver();
       setSnmpReceiverStatus("Not listening");
@@ -605,6 +626,10 @@ export default function App() {
   };
 
   const handleSnmpGet = async () => {
+    if (!hasBridge || !window.fieldlink?.snmp) {
+      setSnmpActionStatus("Web mode: SNMP bridge not available.");
+      return;
+    }
     try {
       setSnmpActionStatus("Running GET...");
       const oids = snmpOidList
@@ -633,6 +658,10 @@ export default function App() {
   };
 
   const handleSnmpWalk = async () => {
+    if (!hasBridge || !window.fieldlink?.snmp) {
+      setSnmpActionStatus("Web mode: SNMP bridge not available.");
+      return;
+    }
     try {
       setSnmpActionStatus("Running WALK...");
       const result = await window.fieldlink.snmp.walk({
@@ -658,6 +687,10 @@ export default function App() {
 
 
   const handleSnmpSendTrap = async () => {
+    if (!hasBridge || !window.fieldlink?.snmp) {
+      setSnmpTrapSendStatus("Web mode: SNMP bridge not available.");
+      return;
+    }
     try {
       setSnmpTrapSendStatus("Sending trap...");
       const result = await window.fieldlink.snmp.sendTrap({
@@ -686,6 +719,10 @@ export default function App() {
   };
 
   const handleSnmpCounterPoll = async () => {
+    if (!hasBridge || !window.fieldlink?.snmp) {
+      setSnmpCounterStatus("Web mode: SNMP bridge not available.");
+      return;
+    }
     const ifIndex = snmpCounterIfIndex.trim();
     if (!ifIndex) {
       setSnmpCounterStatus("Provide an ifIndex to poll.");
@@ -777,6 +814,7 @@ export default function App() {
     refreshPorts();
   }, []);
   useEffect(() => {
+    if (!hasBridge || !window.fieldlink?.serial) return;
     window.fieldlink.serial.onConsoleData((payload) => {
       let normalized = payload.data.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
       if (consoleStripAnsi) {
@@ -801,6 +839,7 @@ export default function App() {
   }, [pollStart]);
 
   useEffect(() => {
+    if (!hasBridge || !window.fieldlink?.snmp) return;
     window.fieldlink.snmp.onTrap((payload) => {
       setSnmpTraps((traps) => [
         {
