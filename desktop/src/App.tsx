@@ -33,6 +33,14 @@ type PollingLog = {
   error?: string;
 };
 
+type RegisterMapEntry = {
+  name: string;
+  register: number;
+  scale?: number;
+  unit?: string;
+  notes?: string;
+};
+
 type SnmpVarbind = {
   oid: string;
   type?: string;
@@ -100,6 +108,8 @@ export default function App() {
   const [pollSlaveId, setPollSlaveId] = useState<number>(modbusAddress);
   const [pollItems, setPollItems] = useState<PollingItem[]>([]);
   const [pollLogs, setPollLogs] = useState<PollingLog[]>([]);
+  const [registerMap, setRegisterMap] = useState<RegisterMapEntry[]>([]);
+  const [registerMapStatus, setRegisterMapStatus] = useState<string>("");
 
   const [snmpHost, setSnmpHost] = useState<string>("127.0.0.1");
   const [snmpPort, setSnmpPort] = useState<number>(161);
@@ -301,6 +311,98 @@ export default function App() {
   const handleRemovePoll = (id: string) => {
     setPollItems((items) => items.filter((item) => item.id !== id));
   };
+
+  const parseCsv = (content: string) => {
+    const rows: string[][] = [];
+    let current = "";
+    let row: string[] = [];
+    let inQuotes = false;
+
+    const pushField = () => {
+      row.push(current);
+      current = "";
+    };
+
+    for (let i = 0; i < content.length; i += 1) {
+      const char = content[i];
+      const next = content[i + 1];
+      if (char === '"') {
+        if (inQuotes && next === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+      if (!inQuotes && char === ",") {
+        pushField();
+        continue;
+      }
+      if (!inQuotes && (char === "\n" || char === "\r")) {
+        if (char === "\r" && next === "\n") {
+          i += 1;
+        }
+        pushField();
+        rows.push(row);
+        row = [];
+        continue;
+      }
+      current += char;
+    }
+    pushField();
+    if (row.some((cell) => cell.trim() !== "")) {
+      rows.push(row);
+    }
+    return rows;
+  };
+
+  const handleRegisterMapUpload = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text).filter((r) => r.some((cell) => cell.trim() !== ""));
+      if (!rows.length) {
+        setRegisterMapStatus("CSV was empty.");
+        return;
+      }
+      const header = rows[0].map((h) => h.trim().toLowerCase());
+      const indexOf = (names: string[]) => names.map((n) => header.indexOf(n)).find((i) => i >= 0) ?? -1;
+      const nameIdx = indexOf(["name", "register name", "label"]);
+      const regIdx = indexOf(["register", "reg", "address", "start"]);
+      const scaleIdx = indexOf(["scale", "multiplier", "factor"]);
+      const unitIdx = indexOf(["unit", "units"]);
+      const notesIdx = indexOf(["notes", "description", "desc"]);
+
+      if (regIdx === -1) {
+        setRegisterMapStatus("CSV must include a register column (register/reg/address/start).");
+        return;
+      }
+
+      const entries: RegisterMapEntry[] = rows
+        .slice(1)
+        .map((row) => {
+          const register = Number(row[regIdx] ?? 0);
+          const scaleRaw = scaleIdx >= 0 ? row[scaleIdx] : "";
+          const scaleValue = scaleRaw ? Number(scaleRaw) : undefined;
+          return {
+            name: nameIdx >= 0 && row[nameIdx] ? row[nameIdx].trim() : `Reg ${register}`,
+            register,
+            scale: Number.isFinite(scaleValue ?? NaN) ? scaleValue : undefined,
+            unit: unitIdx >= 0 && row[unitIdx] ? row[unitIdx].trim() : undefined,
+            notes: notesIdx >= 0 && row[notesIdx] ? row[notesIdx].trim() : undefined,
+          };
+        })
+        .filter((entry) => Number.isFinite(entry.register));
+
+      setRegisterMap(entries);
+      setRegisterMapStatus(`Loaded ${entries.length} register mappings.`);
+    } catch (err) {
+      setRegisterMapStatus(`CSV error: ${String(err)}`);
+    }
+  };
+
+  const findRegisterMap = (register: number) => registerMap.find((entry) => entry.register === register);
 
   const exportCsv = () => {
     if (pollLogs.length === 0) {
@@ -975,6 +1077,23 @@ export default function App() {
             </div>
 
             <div className="card">
+              <h3>Register Map (CSV)</h3>
+              <p className="helper-text">Upload a CSV with columns like: name, register, scale, unit, notes.</p>
+              <label className="field">
+                CSV File
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => handleRegisterMapUpload(e.target.files?.[0] ?? null)}
+                />
+              </label>
+              {registerMapStatus && <p className="helper-text">{registerMapStatus}</p>}
+              {registerMap.length > 0 && (
+                <p className="helper-text">Loaded {registerMap.length} register entries.</p>
+              )}
+            </div>
+
+            <div className="card">
               <h3>Latest Values</h3>
               {pollItems.length === 0 ? (
                 <p className="helper-text">No polls yet.</p>
@@ -983,26 +1102,44 @@ export default function App() {
                   <thead>
                     <tr>
                       <th>Name</th>
+                      <th>Mapped</th>
                       <th>Function</th>
                       <th>Slave</th>
                       <th>Start</th>
                       <th>Count</th>
                       <th>Latest</th>
+                      <th>Scaled</th>
                       <th>Updated</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {pollItems.map((item) => (
-                      <tr key={item.id}>
-                        <td>{item.name}</td>
-                        <td>{item.functionType}</td>
-                        <td>{item.address}</td>
-                        <td>{item.start}</td>
-                        <td>{item.count}</td>
-                        <td>{item.lastValues ? item.lastValues.join(", ") : "-"}</td>
-                        <td>{item.lastUpdated || "-"}</td>
-                      </tr>
-                    ))}
+                    {pollItems.map((item) => {
+                      const mapEntry = item.count === 1 ? findRegisterMap(item.start) : undefined;
+                      const rawValue = item.lastValues?.[0];
+                      const scaledValue =
+                        mapEntry && rawValue !== undefined
+                          ? mapEntry.scale
+                            ? rawValue * mapEntry.scale
+                            : rawValue
+                          : undefined;
+                      return (
+                        <tr key={item.id}>
+                          <td>{item.name}</td>
+                          <td>{mapEntry ? mapEntry.name : "-"}</td>
+                          <td>{item.functionType}</td>
+                          <td>{item.address}</td>
+                          <td>{item.start}</td>
+                          <td>{item.count}</td>
+                          <td>{item.lastValues ? item.lastValues.join(", ") : "-"}</td>
+                          <td>
+                            {scaledValue !== undefined
+                              ? `${scaledValue}${mapEntry?.unit ? ` ${mapEntry.unit}` : ""}`
+                              : "-"}
+                          </td>
+                          <td>{item.lastUpdated || "-"}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
