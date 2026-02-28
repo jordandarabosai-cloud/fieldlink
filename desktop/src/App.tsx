@@ -1546,7 +1546,10 @@ export default function App() {
                   }
                   if (e.key === "Tab") {
                     e.preventDefault();
-                    setConsoleInput((value) => value + "\t");
+                    window.fieldlink?.serial?.consoleWrite?.({ data: "\t" });
+                    if (consoleLocalEcho) {
+                      setConsoleLog((log) => (log + "\t").slice(-20000));
+                    }
                     return;
                   }
                   if (e.key === "Backspace") {

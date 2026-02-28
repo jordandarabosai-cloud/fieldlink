@@ -248,7 +248,7 @@ button.ghost {
   padding: 12px;
   height: 420px;
   min-height: 260px;
-  resize: vertical;
+  resize: both;
   overflow: auto;
   font-family: "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 12px;
