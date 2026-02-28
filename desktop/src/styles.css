@@ -257,7 +257,8 @@ button.ghost {
 
 .console-output pre {
   margin: 0;
-  white-space: pre-wrap;
+  white-space: pre;
+  tab-size: 4;
 }
 
 .console-input-line {
@@ -266,6 +267,8 @@ button.ghost {
   gap: 6px;
   margin-top: 6px;
   color: #e2e8f0;
+  font-family: "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  white-space: pre;
 }
 
 .console-prompt {
