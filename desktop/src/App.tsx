@@ -246,15 +246,32 @@ export default function App() {
       setStatus("Select a console port first.");
       return;
     }
-    try {
+    const attemptOpen = async () => {
       await window.fieldlink.serial.consoleOpen({
         path: consolePortPath,
         baudRate: consoleBaudRate,
         parity: consoleParity,
       });
+    };
+    try {
+      await attemptOpen();
       setConsoleConnected(true);
     } catch (err) {
-      setStatus(`Console open failed: ${String(err)}`);
+      const message = String(err);
+      if (message.toLowerCase().includes("busy")) {
+        try {
+          await window.fieldlink.serial.consoleClose();
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          await attemptOpen();
+          setConsoleConnected(true);
+          setStatus("Console reconnected after busy port reset.");
+          return;
+        } catch (retryErr) {
+          setStatus(`Console reopen failed: ${String(retryErr)}`);
+        }
+      } else {
+        setStatus(`Console open failed: ${message}`);
+      }
       setConsoleConnected(false);
     }
   };
@@ -1525,6 +1542,11 @@ export default function App() {
                   if (e.key === "Enter" && e.shiftKey) {
                     e.preventDefault();
                     setConsoleInput((value) => value + "\n");
+                    return;
+                  }
+                  if (e.key === "Tab") {
+                    e.preventDefault();
+                    setConsoleInput((value) => value + "\t");
                     return;
                   }
                   if (e.key === "Backspace") {
