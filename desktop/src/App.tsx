@@ -267,14 +267,15 @@ export default function App() {
     }
   };
 
-  const sendConsoleInput = async () => {
-    if (!consoleInput) return;
-    const payload = consoleInput + (consoleCrLf ? "\r\n" : "\n");
+  const sendConsoleInput = async (value?: string) => {
+    const inputToSend = value ?? consoleInput;
+    if (!inputToSend) return;
+    const payload = inputToSend + (consoleCrLf ? "\r\n" : "\n");
     try {
       await window.fieldlink.serial.consoleWrite({ data: payload });
       if (consoleLocalEcho) {
         const stamp = consoleTimestamp ? `${formatTimestamp(new Date())} ` : "";
-        setConsoleLog((log) => (log + stamp + consoleInput + (consoleCrLf ? "\r\n" : "\n")).slice(-20000));
+        setConsoleLog((log) => (log + stamp + inputToSend + (consoleCrLf ? "\r\n" : "\n")).slice(-20000));
       }
       setConsoleInput("");
     } catch (err) {
@@ -861,7 +862,7 @@ export default function App() {
     if (el) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [consoleLog, consoleAutoScroll]);
+  }, [consoleLog, consoleAutoScroll, consoleInput]);
 
   useEffect(() => {
     if (!snmpCounterActive) return;
@@ -948,7 +949,25 @@ export default function App() {
   return (
     <div className="app">
       <aside className="sidebar">
-        <h1>FieldLink</h1>
+        <div className="logo">
+          <div className="logo-mark" aria-hidden>
+            <svg viewBox="0 0 64 64" role="img" aria-label="FieldLink logo">
+              <defs>
+                <linearGradient id="fl-grad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#38bdf8" />
+                  <stop offset="100%" stopColor="#2563eb" />
+                </linearGradient>
+              </defs>
+              <circle cx="32" cy="32" r="28" fill="url(#fl-grad)" opacity="0.9" />
+              <path d="M20 32h24" stroke="#0f172a" strokeWidth="4" strokeLinecap="round" />
+              <path d="M26 22l12 10-12 10" stroke="#0f172a" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+          </div>
+          <div className="logo-text">
+            <span>FieldLink</span>
+            <small>Network Toolkit</small>
+          </div>
+        </div>
         <nav>
           <button className={activePage === "connections" ? "active" : ""} onClick={() => setActivePage("connections")}>
             Connections
@@ -1430,24 +1449,7 @@ export default function App() {
 
             <div className="card">
               <h3>Console Output</h3>
-              <div className="field-row">
-                <label className="field" style={{ flex: 1 }}>
-                  Send
-                  <input
-                    value={consoleInput}
-                    onChange={(e) => setConsoleInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        sendConsoleInput();
-                      }
-                    }}
-                  />
-                </label>
-                <button className="secondary" onClick={sendConsoleInput}>
-                  Send
-                </button>
-              </div>
+              <p className="helper-text">Click the console and type. Press Enter to send. Shift+Enter inserts a newline.</p>
               <div className="console-controls">
                 <label className="field">
                   Font size
@@ -1508,8 +1510,50 @@ export default function App() {
                   <button className="ghost" onClick={() => setConsoleLog("")}>Clear</button>
                 </div>
               </div>
-              <div className="console-output" ref={consoleOutputRef} style={{ fontSize: `${consoleFontSize}px` }}>
+              <div
+                className="console-output"
+                ref={consoleOutputRef}
+                style={{ fontSize: `${consoleFontSize}px` }}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (!consoleConnected) return;
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendConsoleInput();
+                    return;
+                  }
+                  if (e.key === "Enter" && e.shiftKey) {
+                    e.preventDefault();
+                    setConsoleInput((value) => value + "\n");
+                    return;
+                  }
+                  if (e.key === "Backspace") {
+                    e.preventDefault();
+                    setConsoleInput((value) => value.slice(0, -1));
+                    return;
+                  }
+                  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    e.preventDefault();
+                    setConsoleInput((value) => value + e.key);
+                  }
+                }}
+                onPaste={(e) => {
+                  if (!consoleConnected) return;
+                  const text = e.clipboardData.getData("text");
+                  if (text) {
+                    e.preventDefault();
+                    setConsoleInput((value) => value + text.replace(/\r/g, ""));
+                  }
+                }}
+              >
                 <pre>{consoleLog || "No data yet."}</pre>
+                <div className="console-input-line">
+                  <span className="console-prompt">›</span>
+                  <span className="console-input">{consoleInput}</span>
+                  <span className="console-caret" aria-hidden>
+                    ▋
+                  </span>
+                </div>
               </div>
             </div>
           </section>
