@@ -152,7 +152,7 @@ export default function App() {
   const [consoleBaudRate, setConsoleBaudRate] = useState<number>(115200);
   const [consoleParity, setConsoleParity] = useState<"none" | "even" | "odd">("none");
   const [consoleConnected, setConsoleConnected] = useState<boolean>(false);
-  const [consoleLog, setConsoleLog] = useState<string>("");
+  const [consoleEntries, setConsoleEntries] = useState<{ ts: Date; text: string }[]>([]);
   const [consoleInput, setConsoleInput] = useState<string>("");
   const [consoleAutoScroll, setConsoleAutoScroll] = useState<boolean>(true);
   const [consoleLocalEcho, setConsoleLocalEcho] = useState<boolean>(false);
@@ -161,6 +161,25 @@ export default function App() {
   const [consoleCrLf, setConsoleCrLf] = useState<boolean>(true);
   const [consoleFontSize, setConsoleFontSize] = useState<number>(12);
   const consoleOutputRef = useRef<HTMLDivElement | null>(null);
+  const consoleLog = useMemo(() => {
+    const lines: string[] = [];
+    consoleEntries.forEach((entry) => {
+      if (consoleTimestamp) {
+        const stamp = `${formatTimestamp(entry.ts)} `;
+        entry.text
+          .split(/\n/)
+          .forEach((line, idx, arr) => {
+            if (line || idx < arr.length - 1) {
+              lines.push(stamp + line);
+            }
+          });
+      } else {
+        lines.push(entry.text);
+      }
+    });
+    const joined = lines.join("\n");
+    return joined.slice(-20000);
+  }, [consoleEntries, consoleTimestamp]);
   const [snmpTrapTargetHost, setSnmpTrapTargetHost] = useState<string>("127.0.0.1");
   const [snmpTrapTargetPort, setSnmpTrapTargetPort] = useState<number>(162);
   const [snmpTrapOid, setSnmpTrapOid] = useState<string>("1.3.6.1.6.3.1.1.5.1");
@@ -291,8 +310,10 @@ export default function App() {
     try {
       await window.fieldlink.serial.consoleWrite({ data: payload });
       if (consoleLocalEcho) {
-        const stamp = consoleTimestamp ? `${formatTimestamp(new Date())} ` : "";
-        setConsoleLog((log) => (log + stamp + inputToSend + (consoleCrLf ? "\r\n" : "\n")).slice(-20000));
+        setConsoleEntries((entries) => [
+          ...entries,
+          { ts: new Date(), text: inputToSend + (consoleCrLf ? "\r\n" : "\n") },
+        ]);
       }
       setConsoleInput("");
     } catch (err) {
@@ -840,16 +861,9 @@ export default function App() {
           .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "")
           .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
       }
-      const stamp = consoleTimestamp ? `${formatTimestamp(new Date())} ` : "";
-      const text = consoleTimestamp
-        ? normalized
-            .split(/\n/)
-            .map((line, idx, arr) => (line || idx < arr.length - 1 ? stamp + line : ""))
-            .join("\n")
-        : normalized;
-      setConsoleLog((log) => (log + text).slice(-20000));
+      setConsoleEntries((entries) => [...entries, { ts: new Date(), text: normalized }]);
     });
-  }, [consoleTimestamp, consoleStripAnsi]);
+  }, [consoleStripAnsi]);
 
 
   useEffect(() => {
@@ -1460,7 +1474,7 @@ export default function App() {
                 ) : (
                   <button className="secondary" onClick={openConsole}>Connect</button>
                 )}
-                <button className="ghost" onClick={() => setConsoleLog("")}>Clear Log</button>
+                <button className="ghost" onClick={() => setConsoleEntries([])}>Clear Log</button>
               </div>
             </div>
 
@@ -1524,7 +1538,7 @@ export default function App() {
                   <button className="ghost" onClick={() => navigator.clipboard.writeText(consoleLog)}>
                     Copy
                   </button>
-                  <button className="ghost" onClick={() => setConsoleLog("")}>Clear</button>
+                  <button className="ghost" onClick={() => setConsoleEntries([])}>Clear</button>
                 </div>
               </div>
               <div
