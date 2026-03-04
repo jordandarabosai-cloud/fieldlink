@@ -1817,9 +1817,15 @@ export default function App() {
                       <ul>
                         {trap.varbinds.map((vb, index) => {
                           const name = MIB_MAP[vb.oid] || vb.oid;
+                          const rawValue = formatTrapValue(vb.value);
+                          // Also decode the value if it's an OID found in our map
+                          const displayValue = (typeof rawValue === "string" && MIB_MAP[rawValue]) 
+                            ? `${MIB_MAP[rawValue]} (${rawValue})` 
+                            : rawValue;
+                          
                           return (
                             <li key={`${trap.id}-${index}`}>
-                              <strong>{name}</strong>: {formatTrapValue(vb.value)}
+                              <strong>{name}</strong>: {displayValue}
                             </li>
                           );
                         })}
@@ -1845,10 +1851,15 @@ export default function App() {
                   <tbody>
                     {snmpResults.map((vb, index) => {
                       const name = MIB_MAP[vb.oid] || vb.oid;
+                      const rawValue = String(vb.value ?? "");
+                      const displayValue = MIB_MAP[rawValue] 
+                        ? `${MIB_MAP[rawValue]} (${rawValue})` 
+                        : rawValue;
+
                       return (
                         <tr key={`${vb.oid}-${index}`}>
                           <td>{name}</td>
-                          <td>{String(vb.value ?? "")}</td>
+                          <td>{displayValue}</td>
                         </tr>
                       );
                     })}
