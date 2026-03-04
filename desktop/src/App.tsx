@@ -1843,12 +1843,15 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {snmpResults.map((vb, index) => (
-                      <tr key={`${vb.oid}-${index}`}>
-                        <td>{vb.oid}</td>
-                        <td>{String(vb.value ?? "")}</td>
-                      </tr>
-                    ))}
+                    {snmpResults.map((vb, index) => {
+                      const name = MIB_MAP[vb.oid] || vb.oid;
+                      return (
+                        <tr key={`${vb.oid}-${index}`}>
+                          <td>{name}</td>
+                          <td>{String(vb.value ?? "")}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
