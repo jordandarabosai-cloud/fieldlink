@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MIB_MAP } from "./mibMap";
 
 type SerialPort = {
   path: string;
@@ -1814,11 +1815,14 @@ export default function App() {
                     <div key={trap.id} className="trap-entry">
                       <strong>{trap.receivedAt}</strong>
                       <ul>
-                        {trap.varbinds.map((vb, index) => (
-                          <li key={`${trap.id}-${index}`}>
-                            {vb.oid}: {formatTrapValue(vb.value)}
-                          </li>
-                        ))}
+                        {trap.varbinds.map((vb, index) => {
+                          const name = MIB_MAP[vb.oid] || vb.oid;
+                          return (
+                            <li key={`${trap.id}-${index}`}>
+                              <strong>{name}</strong>: {formatTrapValue(vb.value)}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   ))
