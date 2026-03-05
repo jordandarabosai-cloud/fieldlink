@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MIB_MAP } from "./mibMap";
+import { MIB_MAP, getLabel } from "./mibMap";
 
 type SerialPort = {
   path: string;
@@ -618,9 +618,10 @@ export default function App() {
     const rows = snmpTraps.flatMap((trap) =>
       trap.varbinds.map((vb) => {
         const rawValue = formatTrapValue(vb.value);
-        const name = MIB_MAP[vb.oid] || vb.oid;
-        const decodedValue = (typeof rawValue === "string" && MIB_MAP[rawValue]) 
-          ? `${MIB_MAP[rawValue]} (${rawValue})` 
+        const name = getLabel(vb.oid);
+        const decodedOidValue = (typeof rawValue === "string") ? getLabel(rawValue) : rawValue;
+        const decodedValue = (decodedOidValue !== rawValue) 
+          ? `${decodedOidValue} (${rawValue})` 
           : rawValue;
 
         return [
@@ -1837,11 +1838,12 @@ export default function App() {
                       <strong>{trap.receivedAt}</strong>
                       <ul>
                         {trap.varbinds.map((vb, index) => {
-                          const name = MIB_MAP[vb.oid] || vb.oid;
+                          const name = getLabel(vb.oid);
                           const rawValue = formatTrapValue(vb.value);
                           // Also decode the value if it's an OID found in our map
-                          const displayValue = (typeof rawValue === "string" && MIB_MAP[rawValue]) 
-                            ? `${MIB_MAP[rawValue]} (${rawValue})` 
+                          const decodedOidValue = (typeof rawValue === "string") ? getLabel(rawValue) : rawValue;
+                          const displayValue = (decodedOidValue !== rawValue) 
+                            ? `${decodedOidValue} (${rawValue})` 
                             : rawValue;
                           
                           return (
@@ -1871,10 +1873,11 @@ export default function App() {
                   </thead>
                   <tbody>
                     {snmpResults.map((vb, index) => {
-                      const name = MIB_MAP[vb.oid] || vb.oid;
+                      const name = getLabel(vb.oid);
                       const rawValue = String(vb.value ?? "");
-                      const displayValue = MIB_MAP[rawValue] 
-                        ? `${MIB_MAP[rawValue]} (${rawValue})` 
+                      const decodedOidValue = getLabel(rawValue);
+                      const displayValue = (decodedOidValue !== rawValue) 
+                        ? `${decodedOidValue} (${rawValue})` 
                         : rawValue;
 
                       return (
