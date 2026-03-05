@@ -88,10 +88,12 @@ const formatTimestamp = (date: Date) =>
     second: "2-digit",
   });
 
-const toCsvValue = (value: string) =>
-  value.includes(",") || value.includes("\n") || value.includes("\"")
-    ? `"${value.replace(/\"/g, '""')}"`
-    : value;
+const toCsvValue = (value: string | number) => {
+  const text = String(value ?? "");
+  return text.includes(",") || text.includes("\n") || text.includes("\"")
+    ? `"${text.replace(/\"/g, '""')}"`
+    : text;
+};
 
 export default function App() {
   const hasBridge = typeof window !== "undefined" && Boolean(window.fieldlink);
