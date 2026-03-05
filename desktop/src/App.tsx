@@ -597,12 +597,19 @@ export default function App() {
   const formatTrapValue = (value: unknown) => {
     if (value === null || value === undefined) return "";
 
-    if (value instanceof Uint8Array) {
-      return String.fromCharCode(...value);
-    }
-
-    if (Array.isArray(value) && value.every((v) => typeof v === "number")) {
-      return String.fromCharCode(...value);
+    if (value instanceof Uint8Array || (Array.isArray(value) && value.every((v) => typeof v === "number"))) {
+      const bytes = value instanceof Uint8Array ? Array.from(value) : (value as number[]);
+      // Check if it's likely printable ASCII
+      const isPrintable = bytes.every(b => (b >= 32 && b <= 126) || b === 10 || b === 13);
+      if (isPrintable && bytes.length > 0) {
+        return String.fromCharCode(...bytes);
+      }
+      // Otherwise, return as Hex or attempt to parse as a large number
+      if (bytes.length === 4) {
+        // Likely a 32-bit integer (big endian)
+        return (bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3]) >>> 0;
+      }
+      return "0x" + bytes.map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
     }
 
     return String(value);
