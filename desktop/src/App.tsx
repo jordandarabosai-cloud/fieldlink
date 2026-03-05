@@ -145,7 +145,7 @@ export default function App() {
   const [snmpTraps, setSnmpTraps] = useState<TrapEntry[]>([]);
   const [snmpReceiverStatus, setSnmpReceiverStatus] = useState<string>("Not listening");
   const [snmpReceiverActive, setSnmpReceiverActive] = useState<boolean>(false);
-  const [snmpTrapPort, setSnmpTrapPort] = useState<number>(1162);
+  const [snmpTrapPort, setSnmpTrapPort] = useState<number>(162);
   const [snmpTrapAddress, setSnmpTrapAddress] = useState<string>("0.0.0.0");
   const [snmpTrapCommunity, setSnmpTrapCommunity] = useState<string>("public");
   const [snmpActionStatus, setSnmpActionStatus] = useState<string>("");
@@ -1799,7 +1799,7 @@ export default function App() {
 
 <div className="card wide">
               <h3>Trap Receiver</h3>
-              <p className="helper-text">Listen on {snmpTrapAddress}:{snmpTrapPort} for v1/v2c/v3 traps. (Port 1162 avoids macOS privileged port restrictions.)</p>
+              <p className="helper-text">Listen on {snmpTrapAddress}:{snmpTrapPort} for v1/v2c/v3 traps.</p>
               <div className="field-row">
                 <label className="field">
                   Address
