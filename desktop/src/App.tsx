@@ -614,13 +614,22 @@ export default function App() {
       return;
     }
 
-    const header = ["receivedAt", "oid", "value"];
+    const header = ["receivedAt", "oid", "name", "value"];
     const rows = snmpTraps.flatMap((trap) =>
-      trap.varbinds.map((vb) => [
-        toCsvValue(trap.receivedAt),
-        toCsvValue(vb.oid),
-        toCsvValue(formatTrapValue(vb.value)),
-      ])
+      trap.varbinds.map((vb) => {
+        const rawValue = formatTrapValue(vb.value);
+        const name = MIB_MAP[vb.oid] || vb.oid;
+        const decodedValue = (typeof rawValue === "string" && MIB_MAP[rawValue]) 
+          ? `${MIB_MAP[rawValue]} (${rawValue})` 
+          : rawValue;
+
+        return [
+          toCsvValue(trap.receivedAt),
+          toCsvValue(vb.oid),
+          toCsvValue(name),
+          toCsvValue(decodedValue),
+        ];
+      })
     );
 
     const csv = [header.join(","), ...rows.map((row) => row.join(","))].join("\n");
@@ -835,8 +844,20 @@ export default function App() {
       setSnmpActionStatus("No SNMP results to export.");
       return;
     }
-    const header = ["oid", "value"];
-    const rows = snmpResults.map((vb) => [toCsvValue(vb.oid), toCsvValue(vb.value ? String(vb.value) : "")]);
+    const header = ["oid", "name", "value"];
+    const rows = snmpResults.map((vb) => {
+      const name = MIB_MAP[vb.oid] || vb.oid;
+      const rawValue = vb.value ? String(vb.value) : "";
+      const displayValue = MIB_MAP[rawValue] 
+        ? `${MIB_MAP[rawValue]} (${rawValue})` 
+        : rawValue;
+
+      return [
+        toCsvValue(vb.oid),
+        toCsvValue(name),
+        toCsvValue(displayValue)
+      ];
+    });
     const csv = [header.join(","), ...rows.map((row) => row.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -1776,7 +1797,7 @@ export default function App() {
               {snmpTrapSendStatus && <p className="helper-text">{snmpTrapSendStatus}</p>}
             </div>
 
-<div className="card">
+<div className="card wide">
               <h3>Trap Receiver</h3>
               <p className="helper-text">Listen on {snmpTrapAddress}:{snmpTrapPort} for v1/v2c/v3 traps. (Port 1162 avoids macOS privileged port restrictions.)</p>
               <div className="field-row">

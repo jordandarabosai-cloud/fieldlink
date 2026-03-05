@@ -220,6 +220,16 @@ button.ghost {
   color: #475569;
 }
 
+.card.wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+  .card.wide {
+    grid-column: span 1;
+  }
+}
+
 .trap-log {
   margin-top: 12px;
   display: grid;
