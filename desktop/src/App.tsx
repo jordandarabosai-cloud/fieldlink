@@ -653,6 +653,28 @@ export default function App() {
     setSnmpActionStatus("Trap CSV exported.");
   };
 
+  const getTrapVarbind = (trap: TrapEntry, oid: string) =>
+    trap.varbinds.find((vb) => vb.oid === oid)?.value;
+
+  const getIfDescr = (trap: TrapEntry) =>
+    trap.varbinds.find((vb) => vb.oid.startsWith("1.3.6.1.2.1.2.2.1.2."))?.value;
+
+  const formatTrapSummary = (trap: TrapEntry) => {
+    const trapOidRaw = getTrapVarbind(trap, "1.3.6.1.6.3.1.1.4.1.0");
+    const trapOid = typeof trapOidRaw === "string" ? trapOidRaw : String(trapOidRaw ?? "");
+    const trapLabel = trapOid ? getLabel(trapOid) : "SNMP Trap";
+    const eventId = getTrapVarbind(trap, "1.3.6.1.4.1.6527.3.1.2.2.7.9.0");
+    const severity = getTrapVarbind(trap, "1.3.6.1.4.1.6527.3.1.2.2.7.31.0");
+    const ifDescr = getIfDescr(trap);
+
+    const parts = [trapLabel];
+    if (eventId !== undefined) parts.push(`Event ID ${eventId}`);
+    if (severity !== undefined) parts.push(`Severity ${severity}`);
+    if (ifDescr) parts.push(`Interface ${String(ifDescr)}`);
+
+    return parts.join(" · ");
+  };
+
   const handleSnmpConfigure = async () => {
     if (!hasBridge || !window.fieldlink?.snmp) {
       setSnmpReceiverStatus("Web mode: SNMP bridge not available.");
@@ -1846,6 +1868,7 @@ export default function App() {
                   snmpTraps.slice(0, 50).map((trap) => (
                     <div key={trap.id} className="trap-entry">
                       <strong>{trap.receivedAt}</strong>
+                      <div className="helper-text">{formatTrapSummary(trap)}</div>
                       <ul>
                         {trap.varbinds.map((vb, index) => {
                           const name = getLabel(vb.oid);
