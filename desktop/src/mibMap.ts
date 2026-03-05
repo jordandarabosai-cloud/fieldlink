@@ -31,6 +31,11 @@ export const MIB_MAP: Record<string, string> = {
   "1.3.6.1.4.1.6527.3.1.2.3.24.1.14": "BGP Peer In-Updates",
 
   // Interface Table (standard)
+  "1.3.6.1.4.1.6527.3.1.3.2.2.0.22": "Nokia Event Throttled (Too many traps)",
+  "1.3.6.1.4.1.6527.3.1.3.3.0.63": "Nokia BGP Peer Backward Transition",
+  "1.3.6.1.4.1.6527.3.1.3.3.0.64": "Nokia BGP Peer Forward Transition",
+  "1.3.6.1.4.1.6527.3.1.2.3.92.1.16": "BGP Local Address",
+  "1.3.6.1.4.1.6527.3.1.2.3.92.1.9": "BGP Remote Address",
   "1.3.6.1.2.1.1.1.0": "sysDescr",
   "1.3.6.1.2.1.1.5.0": "sysName",
   "1.3.6.1.2.1.2.2.1.2": "ifDescr",
