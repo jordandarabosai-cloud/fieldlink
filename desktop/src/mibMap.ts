@@ -11,6 +11,8 @@ export const MIB_MAP: Record<string, string> = {
   "1.3.6.1.4.1.6527.3.1.3.2.1.0.12": "Nokia Port Link Up",
   "1.3.6.1.4.1.6527.3.1.3.2.1.0.13": "Nokia Port Link Down",
   "1.3.6.1.4.1.6527.3.1.3.2.1.0.36": "Nokia Port Signal Fail (Alarm)",
+  "1.3.6.1.4.1.6527.3.1.3.2.1.0.37": "Nokia Port Loss of Frame (Alarm)",
+  "1.3.6.1.4.1.6527.3.1.3.2.1.0.38": "Nokia Port Loss of Sync (Alarm)",
   "1.3.6.1.4.1.6527.3.1.6.3.1.1.5.3": "Nokia Link Down Trap",
   "1.3.6.1.4.1.6527.3.1.6.3.1.1.5.4": "Nokia Link Up Trap",
   
