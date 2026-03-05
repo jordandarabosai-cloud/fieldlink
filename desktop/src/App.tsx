@@ -1833,6 +1833,7 @@ export default function App() {
                 ) : (
                   <button className="secondary" onClick={handleSnmpConfigure}>Start Listening</button>
                 )}
+                <button className="ghost" onClick={() => setSnmpTraps([])}>Clear List</button>
                 <button className="ghost" onClick={exportTrapCsv}>Export Trap CSV</button>
               </div>
               <p className="helper-text">{snmpReceiverStatus}</p>
