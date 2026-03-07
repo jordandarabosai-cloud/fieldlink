@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const { SerialPort } = require("serialport");
 const ModbusRTU = require("modbus-serial");
 const snmp = require("net-snmp");
@@ -13,6 +14,12 @@ const MODBUS_TIMEOUT_MS = 2000;
 
 let snmpReceiver = null;
 let snmpReceiverConfig = { port: 162, address: "0.0.0.0", communities: ["public"] };
+const mibStore = snmp.createModuleStore();
+try {
+  mibStore.loadBaseModules();
+} catch (error) {
+  console.warn("Failed to load base MIB modules", error);
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -72,6 +79,44 @@ function createSnmpSession(options) {
     port: Number(port) || 161,
     version: snmpVersion,
   });
+}
+
+function resolveOidName(oid) {
+  if (!oid || typeof oid !== "string") return null;
+  const parts = oid.split(".");
+  for (let i = parts.length; i >= 2; i -= 1) {
+    const candidate = parts.slice(0, i).join(".");
+    try {
+      const translated = mibStore.translate(candidate, "path");
+      if (translated) return translated;
+    } catch {
+      // keep trimming instance indexes
+    }
+  }
+  return null;
+}
+
+function listMibFiles(dirPath) {
+  const results = [];
+  const stack = [dirPath];
+  while (stack.length) {
+    const current = stack.pop();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+      } else if (/\.(mib|txt)$/i.test(entry.name)) {
+        results.push(full);
+      }
+    }
+  }
+  return results;
 }
 
 function startSnmpReceiver(config) {
@@ -359,6 +404,31 @@ ipcMain.handle("snmp:stopReceiver", async () => {
     snmpReceiver = null;
   }
   return { listening: false };
+});
+
+ipcMain.handle("snmp:resolveOid", async (_event, options) => {
+  const oid = options?.oid;
+  const name = resolveOidName(oid);
+  return { oid, name };
+});
+
+ipcMain.handle("snmp:loadMibs", async (_event, options) => {
+  const dir = options?.directory;
+  if (!dir || !fs.existsSync(dir)) {
+    throw new Error("MIB directory does not exist");
+  }
+  const files = listMibFiles(dir);
+  let loaded = 0;
+  const errors = [];
+  for (const filePath of files) {
+    try {
+      mibStore.loadFromFile(filePath);
+      loaded += 1;
+    } catch (error) {
+      errors.push({ file: filePath, error: String(error?.message || error) });
+    }
+  }
+  return { loaded, total: files.length, errors };
 });
 
 app.whenReady().then(() => {

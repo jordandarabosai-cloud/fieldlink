@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld("fieldlink", {
     walk: (options) => ipcRenderer.invoke("snmp:walk", options),
     sendTrap: (options) => ipcRenderer.invoke("snmp:sendTrap", options),
     stopReceiver: () => ipcRenderer.invoke("snmp:stopReceiver"),
+    resolveOid: (options) => ipcRenderer.invoke("snmp:resolveOid", options),
+    loadMibs: (options) => ipcRenderer.invoke("snmp:loadMibs", options),
     onTrap: (callback) => ipcRenderer.on("snmp:trap", (_event, payload) => callback(payload)),
   },
 });

@@ -144,6 +144,8 @@ export default function App() {
   const [snmpOidList, setSnmpOidList] = useState<string>("1.3.6.1.2.1.1.1.0");
   const [snmpBaseOid, setSnmpBaseOid] = useState<string>("1.3.6.1.2.1");
   const [snmpResults, setSnmpResults] = useState<SnmpVarbind[]>([]);
+  const [snmpMibDirectory, setSnmpMibDirectory] = useState<string>("C:\\Nokia\\MIBs");
+  const [snmpResolvedLabels, setSnmpResolvedLabels] = useState<Record<string, string>>({});
   const [snmpTraps, setSnmpTraps] = useState<TrapEntry[]>([]);
   const [snmpReceiverStatus, setSnmpReceiverStatus] = useState<string>("Not listening");
   const [snmpReceiverActive, setSnmpReceiverActive] = useState<boolean>(false);
@@ -627,7 +629,7 @@ export default function App() {
     const rows = snmpTraps.flatMap((trap) =>
       trap.varbinds.map((vb) => {
         const rawValue = formatTrapValue(vb.value);
-        const name = getLabel(vb.oid);
+        const name = displayOidLabel(vb.oid);
         const decodedOidValue = (typeof rawValue === "string") ? getLabel(rawValue) : rawValue;
         const decodedValue = (decodedOidValue !== rawValue) 
           ? `${decodedOidValue} (${rawValue})` 
@@ -673,6 +675,67 @@ export default function App() {
     if (ifDescr) parts.push(`Interface ${String(ifDescr)}`);
 
     return parts.join(" · ");
+  };
+
+  const displayOidLabel = (oid: string) => snmpResolvedLabels[oid] || getLabel(oid);
+
+  const resolveOids = async (oids: string[]) => {
+    if (!hasBridge || !window.fieldlink?.snmp) return;
+    const unique = Array.from(new Set(oids.filter(Boolean))).filter((oid) => !snmpResolvedLabels[oid]);
+    if (!unique.length) return;
+    const updates: Record<string, string> = {};
+    for (const oid of unique) {
+      try {
+        const result = await window.fieldlink.snmp.resolveOid({ oid });
+        if (result?.name) {
+          updates[oid] = result.name;
+        }
+      } catch {
+        // ignore unresolved OIDs
+      }
+    }
+    if (Object.keys(updates).length) {
+      setSnmpResolvedLabels((prev) => ({ ...prev, ...updates }));
+    }
+  };
+
+  const handleSnmpLoadMibs = async () => {
+    if (!hasBridge || !window.fieldlink?.snmp) {
+      setSnmpActionStatus("Web mode: SNMP bridge not available.");
+      return;
+    }
+    try {
+      setSnmpActionStatus("Loading MIB files...");
+      const result = await window.fieldlink.snmp.loadMibs({ directory: snmpMibDirectory });
+      const errorText = result.errors?.length ? ` (${result.errors.length} failed)` : "";
+      setSnmpActionStatus(`Loaded ${result.loaded}/${result.total} MIB files${errorText}.`);
+    } catch (err) {
+      setSnmpActionStatus(`MIB load error: ${String(err)}`);
+    }
+  };
+
+  const handleLoadNokia7750Profile = () => {
+    setSnmpVersion("v2c");
+    setSnmpCommunity("public");
+    setSnmpBaseOid("1.3.6.1.4.1.6527");
+    setSnmpOidList(
+      [
+        "1.3.6.1.2.1.1.1.0", // sysDescr
+        "1.3.6.1.2.1.1.5.0", // sysName
+        "1.3.6.1.2.1.1.3.0", // sysUpTime
+        "1.3.6.1.2.1.2.2.1.2.1", // ifDescr.1
+        "1.3.6.1.2.1.2.2.1.8.1", // ifOperStatus.1
+        "1.3.6.1.2.1.31.1.1.1.1.1", // ifName.1
+        "1.3.6.1.4.1.6527.3.1.2.1.1.1", // sgiCpuUsage
+        "1.3.6.1.4.1.6527.3.1.2.1.1.9", // sgiKbMemoryUsed
+        "1.3.6.1.4.1.6527.3.1.2.1.1.10", // sgiKbMemoryAvailable
+        "1.3.6.1.4.1.6527.3.1.2.2.7.9.0", // eventId
+        "1.3.6.1.4.1.6527.3.1.2.2.7.31.0", // eventSeverity
+        "1.3.6.1.4.1.6527.3.1.2.3.24.1.12", // bgp peer state table
+      ].join(", ")
+    );
+    setSnmpTrapOid("1.3.6.1.4.1.6527.3.1.3.2.2.0.35");
+    setSnmpActionStatus("Loaded Nokia 7750 starter profile. Set host, load MIBs, then run GET/WALK.");
   };
 
   const handleSnmpConfigure = async () => {
@@ -732,6 +795,7 @@ export default function App() {
         oids,
       });
       setSnmpResults(result.varbinds || []);
+      await resolveOids((result.varbinds || []).map((vb) => vb.oid));
       setSnmpActionStatus("GET complete.");
     } catch (err) {
       setSnmpActionStatus(`GET error: ${String(err)}`);
@@ -760,6 +824,7 @@ export default function App() {
         baseOid: snmpBaseOid,
       });
       setSnmpResults(result.varbinds || []);
+      await resolveOids((result.varbinds || []).map((vb) => vb.oid));
       setSnmpActionStatus("WALK complete.");
     } catch (err) {
       setSnmpActionStatus(`WALK error: ${String(err)}`);
@@ -878,7 +943,7 @@ export default function App() {
     }
     const header = ["oid", "name", "value"];
     const rows = snmpResults.map((vb) => {
-      const name = MIB_MAP[vb.oid] || vb.oid;
+      const name = displayOidLabel(vb.oid);
       const rawValue = vb.value ? String(vb.value) : "";
       const displayValue = MIB_MAP[rawValue] 
         ? `${MIB_MAP[rawValue]} (${rawValue})` 
@@ -935,6 +1000,7 @@ export default function App() {
         },
         ...traps,
       ]);
+      resolveOids((payload.varbinds || []).map((vb) => vb.oid));
     });
   }, []);
   useEffect(() => {
@@ -1713,6 +1779,7 @@ export default function App() {
               <div className="card-actions">
                 <button className="secondary" onClick={handleSnmpGet}>GET</button>
                 <button className="ghost" onClick={handleSnmpWalk}>WALK</button>
+                <button className="ghost" onClick={handleLoadNokia7750Profile}>Load Nokia 7750 Profile</button>
               </div>
               <label className="field">
                 OIDs (comma or space separated)
@@ -1722,6 +1789,13 @@ export default function App() {
                 Base OID (for walk)
                 <input value={snmpBaseOid} onChange={(e) => setSnmpBaseOid(e.target.value)} />
               </label>
+              <label className="field">
+                MIB Directory (Nokia TIMETRA .mib files)
+                <input value={snmpMibDirectory} onChange={(e) => setSnmpMibDirectory(e.target.value)} />
+              </label>
+              <div className="card-actions">
+                <button className="ghost" onClick={handleSnmpLoadMibs}>Load MIBs</button>
+              </div>
               {snmpActionStatus && <p className="helper-text">{snmpActionStatus}</p>}
             </div>
 
@@ -1871,7 +1945,7 @@ export default function App() {
                       <div className="helper-text">{formatTrapSummary(trap)}</div>
                       <ul>
                         {trap.varbinds.map((vb, index) => {
-                          const name = getLabel(vb.oid);
+                          const name = displayOidLabel(vb.oid);
                           const rawValue = formatTrapValue(vb.value);
                           // Also decode the value if it's an OID found in our map
                           const decodedOidValue = (typeof rawValue === "string") ? getLabel(rawValue) : rawValue;
@@ -1906,7 +1980,7 @@ export default function App() {
                   </thead>
                   <tbody>
                     {snmpResults.map((vb, index) => {
-                      const name = getLabel(vb.oid);
+                      const name = displayOidLabel(vb.oid);
                       const rawValue = String(vb.value ?? "");
                       const decodedOidValue = getLabel(rawValue);
                       const displayValue = (decodedOidValue !== rawValue) 

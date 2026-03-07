@@ -8,7 +8,9 @@
     "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "vite build",
     "lint": "eslint .",
-    "cap:build": "vite build && npx cap sync"
+    "cap:build": "vite build && npx cap sync",
+    "dist:win": "npm run build && electron-packager . FieldLink --platform=win32 --arch=x64 --out=release --overwrite",
+    "dist:win:installer": "npm run build && electron-builder --win nsis --x64"
   },
   "dependencies": {
     "@capacitor/cli": "^8.1.0",
@@ -26,9 +28,37 @@
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
     "electron": "^31.2.1",
+    "electron-builder": "^24.13.3",
+    "electron-packager": "^17.1.2",
     "eslint": "^9.16.0",
     "typescript": "^5.7.2",
     "vite": "^5.4.11",
     "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "ai.jordandarabos.fieldlink",
+    "productName": "FieldLink",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/serialport/**/*",
+      "node_modules/@serialport/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   }
 }

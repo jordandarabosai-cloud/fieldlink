@@ -69,6 +69,8 @@ declare global {
           message?: string;
         }) => Promise<{ success: boolean; error?: string }>;
         stopReceiver: () => Promise<{ listening: boolean }>;
+        resolveOid: (options: { oid: string }) => Promise<{ oid: string; name: string | null }>;
+        loadMibs: (options: { directory: string }) => Promise<{ loaded: number; total: number; errors: Array<{ file: string; error: string }> }>;
         onTrap: (callback: (payload: { receivedAt: string; raw: unknown; varbinds: Array<{ oid: string; type?: string; value?: unknown }> }) => void) => void;
       };
     };
