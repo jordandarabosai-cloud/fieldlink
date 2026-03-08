@@ -5,6 +5,9 @@ export const MIB_MAP: Record<string, string> = {
   "1.3.6.1.4.1.6527.3.1.3.2.2.0.35": "Nokia Log Event Generated",
   "1.3.6.1.4.1.6527.3.1.3.2.2.0.43": "Nokia Threshold Crossing Event",
   "1.3.6.1.4.1.6527.3.1.3.3.0.46": "Nokia BGP Peer Session Down",
+  "1.3.6.1.4.1.6527.3.1.3.3.0.63": "Nokia Static Route Withdrawn / Inactive",
+  "1.3.6.1.4.1.6527.3.1.3.3.0.64": "Nokia Static Route Installed / Active",
+  "1.3.6.1.4.1.6527.3.1.3.4.3.0.21": "Nokia Service/Subscriber State Change",
   "1.3.6.1.4.1.6527.3.1.2.2.7.1.0": "Nokia Event Sequence ID",
   "1.3.6.1.4.1.6527.3.1.2.2.7.9.0": "Nokia Event ID",
   "1.3.6.1.4.1.6527.3.1.2.2.7.31.0": "Nokia Event Severity",
@@ -13,8 +16,8 @@ export const MIB_MAP: Record<string, string> = {
   "1.3.6.1.4.1.6527.3.1.3.2.1.0.36": "Nokia Port Signal Fail (alarm set)",
   "1.3.6.1.4.1.6527.3.1.3.2.1.0.37": "Nokia Port Loss of Frame (alarm set)",
   "1.3.6.1.4.1.6527.3.1.3.2.1.0.38": "Nokia Port Loss of Sync (alarm set)",
-  "1.3.6.1.4.1.6527.3.1.6.3.1.1.5.3": "Nokia Link Down Trap",
-  "1.3.6.1.4.1.6527.3.1.6.3.1.1.5.4": "Nokia Link Up Trap",
+  "1.3.6.1.6.3.1.1.5.3": "IF-MIB linkDown",
+  "1.3.6.1.6.3.1.1.5.4": "IF-MIB linkUp",
 
   // Port Events (from Event-Control list)
   "1.3.6.1.4.1.6527.3.1.3.2.1.0.2001": "Nokia SONET/SDH Port Alarm Set (incl LOF/LOS family)",
@@ -108,6 +111,17 @@ export const MIB_MAP: Record<string, string> = {
   "1.3.6.1.4.1.6527.3.1.2.3.24.1.12": "BGP Peer State",
   "1.3.6.1.4.1.6527.3.1.2.3.24.1.13": "BGP Peer Established Time",
   "1.3.6.1.4.1.6527.3.1.2.3.24.1.14": "BGP Peer In-Updates",
+
+  // Static Route / Next-hop context seen in traps
+  "1.3.6.1.4.1.6527.3.1.2.3.92.1.9": "Static Route Next-Hop Info",
+  "1.3.6.1.4.1.6527.3.1.2.3.92.1.16": "Static Route Internal State/Flags",
+  "1.3.6.1.4.1.6527.3.1.2.3.92.1.18": "Static Route Status Bitmap",
+  "1.3.6.1.4.1.6527.3.1.2.3.21.41.0": "Static Route Protocol Type",
+  "1.3.6.1.4.1.6527.3.1.2.3.21.42.0": "Static Route Active Flag",
+
+  // Service context seen with service/subscriber traps
+  "1.3.6.1.4.1.6527.3.1.2.4.3.100.1.0": "Service Event Object ID",
+  "1.3.6.1.4.1.6527.3.1.2.4.3.100.29.0": "Service Event State",
 
   // Interface Table (standard)
   "1.3.6.1.2.1.1.1.0": "sysDescr",

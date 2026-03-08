@@ -619,6 +619,63 @@ export default function App() {
     return String(value);
   };
 
+  const decodeNokiaValue = (oid: string, raw: unknown): string => {
+    const text = String(raw ?? "");
+    const n = Number(text);
+
+    if (oid === "1.3.6.1.4.1.6527.3.1.2.2.7.9.0") {
+      const eventMap: Record<number, string> = {
+        17: "Port Down",
+        18: "Port Up / Clear",
+      };
+      return Number.isFinite(n) && eventMap[n] ? `${eventMap[n]} (${text})` : text;
+    }
+
+    if (oid === "1.3.6.1.4.1.6527.3.1.2.2.7.31.0") {
+      const severityMap: Record<number, string> = {
+        0: "cleared/info",
+        1: "critical",
+        2: "major",
+        3: "minor",
+        4: "warning",
+      };
+      return Number.isFinite(n) && severityMap[n] ? `${severityMap[n]} (${text})` : text;
+    }
+
+    if (oid.startsWith("1.3.6.1.4.1.6527.3.1.2.3.92.1.16")) {
+      const stateMap: Record<number, string> = {
+        6144: "inactive/withdrawn",
+        6145: "active/installed",
+      };
+      return Number.isFinite(n) && stateMap[n] ? `${stateMap[n]} (${text})` : text;
+    }
+
+    if (oid === "1.3.6.1.4.1.6527.3.1.2.3.21.42.0") {
+      if (text === "1") return "active (1)";
+      if (text === "0") return "inactive (0)";
+    }
+
+    if (oid.startsWith("1.3.6.1.4.1.6527.3.1.2.3.24.1.12")) {
+      const bgpStateMap: Record<number, string> = {
+        1: "idle",
+        2: "connect",
+        3: "active",
+        4: "opensent",
+        5: "openconfirm",
+        6: "established",
+      };
+      return Number.isFinite(n) && bgpStateMap[n] ? `${bgpStateMap[n]} (${text})` : text;
+    }
+
+    return text;
+  };
+
+  const decodeDisplayValue = (oid: string, rawValue: unknown): string => {
+    const decodedByOid = decodeNokiaValue(oid, rawValue);
+    const decodedOidRef = getLabel(decodedByOid);
+    return decodedOidRef !== decodedByOid ? `${decodedOidRef} (${decodedByOid})` : decodedByOid;
+  };
+
   const exportTrapCsv = () => {
     if (snmpTraps.length === 0) {
       setSnmpActionStatus("No trap data to export.");
@@ -630,10 +687,7 @@ export default function App() {
       trap.varbinds.map((vb) => {
         const rawValue = formatTrapValue(vb.value);
         const name = displayOidLabel(vb.oid);
-        const decodedOidValue = (typeof rawValue === "string") ? getLabel(rawValue) : rawValue;
-        const decodedValue = (decodedOidValue !== rawValue) 
-          ? `${decodedOidValue} (${rawValue})` 
-          : rawValue;
+        const decodedValue = decodeDisplayValue(vb.oid, rawValue);
 
         return [
           toCsvValue(trap.receivedAt),
@@ -670,8 +724,8 @@ export default function App() {
     const ifDescr = getIfDescr(trap);
 
     const parts = [trapLabel];
-    if (eventId !== undefined) parts.push(`Event ID ${eventId}`);
-    if (severity !== undefined) parts.push(`Severity ${severity}`);
+    if (eventId !== undefined) parts.push(`Event ${decodeNokiaValue("1.3.6.1.4.1.6527.3.1.2.2.7.9.0", eventId)}`);
+    if (severity !== undefined) parts.push(`Severity ${decodeNokiaValue("1.3.6.1.4.1.6527.3.1.2.2.7.31.0", severity)}`);
     if (ifDescr) parts.push(`Interface ${String(ifDescr)}`);
 
     return parts.join(" · ");
@@ -1947,11 +2001,7 @@ export default function App() {
                         {trap.varbinds.map((vb, index) => {
                           const name = displayOidLabel(vb.oid);
                           const rawValue = formatTrapValue(vb.value);
-                          // Also decode the value if it's an OID found in our map
-                          const decodedOidValue = (typeof rawValue === "string") ? getLabel(rawValue) : rawValue;
-                          const displayValue = (decodedOidValue !== rawValue) 
-                            ? `${decodedOidValue} (${rawValue})` 
-                            : rawValue;
+                          const displayValue = decodeDisplayValue(vb.oid, rawValue);
                           
                           return (
                             <li key={`${trap.id}-${index}`}>
@@ -1981,11 +2031,8 @@ export default function App() {
                   <tbody>
                     {snmpResults.map((vb, index) => {
                       const name = displayOidLabel(vb.oid);
-                      const rawValue = String(vb.value ?? "");
-                      const decodedOidValue = getLabel(rawValue);
-                      const displayValue = (decodedOidValue !== rawValue) 
-                        ? `${decodedOidValue} (${rawValue})` 
-                        : rawValue;
+                      const rawValue = formatTrapValue(vb.value);
+                      const displayValue = decodeDisplayValue(vb.oid, rawValue);
 
                       return (
                         <tr key={`${vb.oid}-${index}`}>
