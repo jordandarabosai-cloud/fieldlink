@@ -16,6 +16,8 @@ declare global {
         onConsoleData: (callback: (payload: { data: string }) => void) => void;
       };
       modbus: {
+        openTcp: (options: { host: string; port: number }) => Promise<{ open: boolean; host: string; port: number }>;
+        close: () => Promise<{ open: boolean }>;
         readHolding: (options: { address: number; start: number; count: number }) => Promise<{ values: number[] }>;
         readInput: (options: { address: number; start: number; count: number }) => Promise<{ values: number[] }>;
         writeMultiple: (options: { address: number; start: number; values: number[] }) => Promise<{ written: number }>;

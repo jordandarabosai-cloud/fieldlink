@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld("fieldlink", {
     onConsoleData: (callback) => ipcRenderer.on("serial:consoleData", (_event, payload) => callback(payload)),
   },
   modbus: {
+    openTcp: (options) => ipcRenderer.invoke("modbus:openTcp", options),
+    close: () => ipcRenderer.invoke("modbus:close"),
     readHolding: (options) => ipcRenderer.invoke("modbus:readHolding", options),
     readInput: (options) => ipcRenderer.invoke("modbus:readInput", options),
     writeMultiple: (options) => ipcRenderer.invoke("modbus:writeMultiple", options),

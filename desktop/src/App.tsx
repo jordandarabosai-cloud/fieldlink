@@ -103,6 +103,9 @@ export default function App() {
   const [baudRate, setBaudRate] = useState<number>(115200);
   const [parity, setParity] = useState<"none" | "even" | "odd">("none");
   const [modbusAddress, setModbusAddress] = useState<number>(1);
+  const [modbusTcpHost, setModbusTcpHost] = useState<string>("127.0.0.1");
+  const [modbusTcpPort, setModbusTcpPort] = useState<number>(502);
+  const [modbusTcpOpen, setModbusTcpOpen] = useState(false);
   const [mstpMac, setMstpMac] = useState<number>(5);
   const [serialOpen, setSerialOpen] = useState(false);
   const [status, setStatus] = useState<string>("Idle");
@@ -247,7 +250,32 @@ export default function App() {
     }
     await window.fieldlink.serial.close();
     setSerialOpen(false);
+    setModbusTcpOpen(false);
     setStatus("Serial disconnected");
+  };
+
+  const openModbusTcp = async () => {
+    if (!hasBridge || !window.fieldlink?.modbus) {
+      setStatus("Web mode: Modbus TCP bridge not available.");
+      return;
+    }
+    try {
+      setStatus("Opening Modbus TCP...");
+      await window.fieldlink.modbus.openTcp({ host: modbusTcpHost, port: modbusTcpPort });
+      setSerialOpen(false);
+      setModbusTcpOpen(true);
+      setStatus(`Modbus TCP connected to ${modbusTcpHost}:${modbusTcpPort}`);
+    } catch (err) {
+      setModbusTcpOpen(false);
+      setStatus(`Modbus TCP open failed: ${String(err)}`);
+    }
+  };
+
+  const closeModbusTcp = async () => {
+    if (!hasBridge || !window.fieldlink?.modbus) return;
+    await window.fieldlink.modbus.close();
+    setModbusTcpOpen(false);
+    setStatus("Modbus TCP disconnected");
   };
 
   const runModbusRead = async (
@@ -1327,6 +1355,26 @@ export default function App() {
             </div>
 
             <div className="card">
+              <h3>Modbus TCP</h3>
+              <div className="field-row">
+                <label className="field">
+                  Host / IP Address
+                  <input value={modbusTcpHost} onChange={(e) => setModbusTcpHost(e.target.value)} placeholder="192.168.1.100" />
+                </label>
+                <label className="field">
+                  TCP Port
+                  <input type="number" min={1} max={65535} value={modbusTcpPort} onChange={(e) => setModbusTcpPort(Number(e.target.value))} />
+                </label>
+              </div>
+              <p className="helper-text">Uses the same unit/slave address and register controls above.</p>
+              {modbusTcpOpen ? (
+                <button className="ghost" onClick={closeModbusTcp}>Disconnect TCP</button>
+              ) : (
+                <button className="secondary" onClick={openModbusTcp}>Connect TCP</button>
+              )}
+            </div>
+
+            <div className="card">
               <h3>BACnet MS/TP</h3>
               <label className="field">
                 Local MAC
@@ -1342,6 +1390,7 @@ export default function App() {
               <h3>Status</h3>
               <ul className="status-list">
                 <li>Serial: {serialOpen ? "Connected" : "Disconnected"}</li>
+                <li>Modbus TCP: {modbusTcpOpen ? "Connected" : "Disconnected"}</li>
                 <li>Modbus RTU: {modbusResponse ? "Active" : "Idle"}</li>
                 <li>BACnet MS/TP: Idle</li>
                 <li>USB-Ethernet: Not detected</li>

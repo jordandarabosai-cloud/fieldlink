@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "cap:build": "vite build && npx cap sync",
     "dist:win": "npm run build && electron-packager . FieldLink --platform=win32 --arch=x64 --out=release --overwrite",
-    "dist:win:installer": "npm run build && electron-builder --win nsis --x64"
+    "dist:win:installer": "npm run build && electron-builder --win nsis --x64",
+    "dist:mac:arm64": "npm run build && electron-builder --mac dmg --arm64"
   },
   "dependencies": {
     "@capacitor/cli": "^8.5.3",
@@ -61,6 +62,18 @@
             "x64"
           ]
         }
+      ]
+    },
+    "mac": {
+      "target": ["dmg"],
+      "arch": ["arm64"],
+      "category": "public.app-category.utilities"
+    },
+    "dmg": {
+      "title": "FieldLink",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
       ]
     }
   }

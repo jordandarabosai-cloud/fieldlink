@@ -6,8 +6,8 @@ const ModbusRTU = require("modbus-serial");
 const snmp = require("net-snmp");
 
 const isDev = !app.isPackaged;
-let activePort = null;
 let modbusClient = null;
+let modbusConnection = null;
 let consolePort = null;
 let modbusQueue = Promise.resolve();
 const MODBUS_TIMEOUT_MS = 2000;
@@ -38,10 +38,21 @@ function createWindow() {
   }
 }
 
-function ensureSerialOpen() {
-  if (!activePort || !modbusClient) {
-    throw new Error("Serial port not open");
+function ensureModbusOpen() {
+  if (!modbusConnection || !modbusClient) {
+    throw new Error("Modbus connection not open");
   }
+}
+
+function closeModbusClient() {
+  if (!modbusClient) return Promise.resolve();
+  return new Promise((resolve) => {
+    try {
+      modbusClient.close(() => resolve());
+    } catch {
+      resolve();
+    }
+  });
 }
 
 function enqueueModbus(task) {
@@ -231,9 +242,7 @@ ipcMain.handle("serial:consoleClose", async () => {
 });
 
 ipcMain.handle("serial:open", async (_event, options) => {
-  if (modbusClient) {
-    await new Promise((resolve) => modbusClient.close(() => resolve()));
-  }
+  await closeModbusClient();
 
   modbusClient = new ModbusRTU();
 
@@ -245,29 +254,52 @@ ipcMain.handle("serial:open", async (_event, options) => {
       stopBits: 1,
     });
     modbusClient.setTimeout(MODBUS_TIMEOUT_MS);
-    activePort = options.path;
+    modbusConnection = { type: "rtu", path: options.path };
     return { open: true, path: options.path };
   } catch (error) {
     modbusClient = null;
-    activePort = null;
+    modbusConnection = null;
+    throw new Error(error?.message || String(error));
+  }
+});
+
+ipcMain.handle("modbus:openTcp", async (_event, options) => {
+  await closeModbusClient();
+  modbusClient = new ModbusRTU();
+
+  try {
+    const host = String(options.host || "").trim();
+    const port = Number(options.port) || 502;
+    if (!host) throw new Error("Modbus TCP host is required");
+    await modbusClient.connectTCP(host, { port });
+    modbusClient.setTimeout(MODBUS_TIMEOUT_MS);
+    modbusConnection = { type: "tcp", host, port };
+    return { open: true, host, port };
+  } catch (error) {
+    modbusClient = null;
+    modbusConnection = null;
     throw new Error(error?.message || String(error));
   }
 });
 
 ipcMain.handle("serial:close", async () => {
   if (!modbusClient) return { open: false };
+  await closeModbusClient();
+  modbusClient = null;
+  modbusConnection = null;
+  return { open: false };
+});
 
-  return new Promise((resolve) => {
-    modbusClient.close(() => {
-      modbusClient = null;
-      activePort = null;
-      resolve({ open: false });
-    });
-  });
+ipcMain.handle("modbus:close", async () => {
+  if (!modbusClient) return { open: false };
+  await closeModbusClient();
+  modbusClient = null;
+  modbusConnection = null;
+  return { open: false };
 });
 
 ipcMain.handle("modbus:readHolding", async (_event, options) => {
-  ensureSerialOpen();
+  ensureModbusOpen();
   return enqueueModbus(async () => {
     try {
       modbusClient.setID(options.address);
@@ -284,7 +316,7 @@ ipcMain.handle("modbus:readHolding", async (_event, options) => {
 });
 
 ipcMain.handle("modbus:readInput", async (_event, options) => {
-  ensureSerialOpen();
+  ensureModbusOpen();
   return enqueueModbus(async () => {
     try {
       modbusClient.setID(options.address);
@@ -301,7 +333,7 @@ ipcMain.handle("modbus:readInput", async (_event, options) => {
 });
 
 ipcMain.handle("modbus:writeMultiple", async (_event, options) => {
-  ensureSerialOpen();
+  ensureModbusOpen();
   return enqueueModbus(async () => {
     try {
       modbusClient.setID(options.address);
