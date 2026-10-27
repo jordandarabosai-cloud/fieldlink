@@ -2,6 +2,8 @@
   "name": "fieldlink-desktop",
   "version": "0.1.0",
   "private": true,
+  "description": "FieldLink industrial protocol diagnostics and monitoring desktop app",
+  "author": "Jordan Darabos",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
@@ -66,7 +68,6 @@
     },
     "mac": {
       "target": ["dmg"],
-      "arch": ["arm64"],
       "category": "public.app-category.utilities"
     },
     "dmg": {
