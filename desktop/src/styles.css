@@ -399,17 +399,28 @@ button.ghost {
   color: #991b1b;
 }
 
+.poll-count-cell {
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+  text-align: right !important;
+}
+
 .action-cell {
   text-align: right !important;
 }
 
 .table-remove {
-  padding: 6px 9px;
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  padding: 0;
   border: 1px solid #fecaca;
   border-radius: 7px;
   background: #fff7f7;
   color: #b91c1c;
-  font-size: 11px;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .table-remove:hover {

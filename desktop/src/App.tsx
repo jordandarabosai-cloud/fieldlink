@@ -18,6 +18,7 @@ type PollingItem = {
   count: number;
   intervalMs: number;
   enabled: boolean;
+  pollAttempts?: number;
   lastValues?: number[];
   lastUpdated?: string;
   error?: string;
@@ -396,6 +397,7 @@ export default function App() {
         count: pollCount,
         intervalMs: pollInterval,
         enabled: pollRunning,
+        pollAttempts: 0,
       },
     ]);
     setPollName(`Reg ${nextStart}`);
@@ -558,6 +560,7 @@ export default function App() {
           count: 1,
           intervalMs: Math.max(250, pollInterval),
           enabled: pollRunning,
+          pollAttempts: 0,
           source: "register-map" as const,
         })),
       ]);
@@ -1203,6 +1206,7 @@ export default function App() {
                 existing.id === item.id
                   ? {
                       ...existing,
+                      pollAttempts: (existing.pollAttempts ?? 0) + 1,
                       lastValues: result.values,
                       lastUpdated: timestamp,
                       error: undefined,
@@ -1227,7 +1231,7 @@ export default function App() {
             setPollItems((items) =>
               items.map((existing) =>
                 existing.id === item.id
-                  ? { ...existing, lastUpdated: timestamp, error: String(err) }
+                  ? { ...existing, pollAttempts: (existing.pollAttempts ?? 0) + 1, lastUpdated: timestamp, error: String(err) }
                   : existing
               )
             );
@@ -1767,6 +1771,7 @@ export default function App() {
                       <th>Start</th>
                       <th>Count</th>
                       <th>Interval</th>
+                      <th>Polls</th>
                       <th>Latest</th>
                       <th>Scaled</th>
                       <th>Updated</th>
@@ -1793,6 +1798,7 @@ export default function App() {
                           <td className="numeric-cell">{item.start}</td>
                           <td className="numeric-cell">{item.count}</td>
                           <td className="interval-cell">{item.intervalMs >= 1000 ? `${item.intervalMs / 1000}s` : `${item.intervalMs}ms`}</td>
+                          <td className="poll-count-cell">{item.pollAttempts ?? 0}</td>
                           <td className="latest-cell">{item.lastValues ? item.lastValues.join(", ") : <span className="muted-value">—</span>}</td>
                           <td className="scaled-cell">
                             {scaledValue !== undefined
@@ -1804,8 +1810,8 @@ export default function App() {
                             {item.error ? <span className="status-badge status-error" title={item.error}>Error</span> : item.lastValues ? <span className="status-badge status-ok">OK</span> : <span className="status-badge status-waiting">Waiting</span>}
                           </td>
                           <td className="action-cell">
-                            <button className="table-remove" onClick={() => handleDeleteRegister(item)} title={`Delete ${item.name}`}>
-                              Delete
+                            <button className="table-remove" onClick={() => handleDeleteRegister(item)} title={`Delete ${item.name}`} aria-label={`Delete ${item.name}`}>
+                              ×
                             </button>
                           </td>
                         </tr>
