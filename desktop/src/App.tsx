@@ -124,6 +124,7 @@ export default function App() {
   const [pollFunction, setPollFunction] = useState<Exclude<ModbusFunction, "write">>("holding");
   const [pollSlaveId, setPollSlaveId] = useState<number>(modbusAddress);
   const [pollItems, setPollItems] = useState<PollingItem[]>([]);
+  const [pollRunning, setPollRunning] = useState(false);
   const [pollLogs, setPollLogs] = useState<PollingLog[]>([]);
   const [registerMap, setRegisterMap] = useState<RegisterMapEntry[]>([]);
   const [registerMapStatus, setRegisterMapStatus] = useState<string>("");
@@ -392,7 +393,7 @@ export default function App() {
         start: nextStart,
         count: pollCount,
         intervalMs: pollInterval,
-        enabled: true,
+        enabled: pollRunning,
       },
     ]);
     setPollName(`Reg ${nextStart}`);
@@ -413,6 +414,22 @@ export default function App() {
 
   const handleRemovePoll = (id: string) => {
     setPollItems((items) => items.filter((item) => item.id !== id));
+  };
+
+  const startPolling = () => {
+    if (pollItems.length === 0) {
+      setRegisterMapStatus("Add a poll or upload a register map first.");
+      return;
+    }
+    setPollRunning(true);
+    setPollItems((items) => items.map((item) => ({ ...item, enabled: true })));
+    setRegisterMapStatus("Polling started.");
+  };
+
+  const stopPolling = () => {
+    setPollRunning(false);
+    setPollItems((items) => items.map((item) => ({ ...item, enabled: false })));
+    setRegisterMapStatus("Polling stopped. Values remain visible.");
   };
 
   const parseCsv = (content: string) => {
@@ -509,12 +526,12 @@ export default function App() {
           start: entry.register,
           count: 1,
           intervalMs: Math.max(250, pollInterval),
-          enabled: true,
+          enabled: pollRunning,
           source: "register-map" as const,
         })),
       ]);
       setRegisterMapStatus(
-        `Loaded ${entries.length} register mappings and started polling. Connect RTU or TCP to populate values.`
+        `Loaded ${entries.length} register mappings. Connect RTU or TCP, then click Start Polling.`
       );
     } catch (err) {
       setRegisterMapStatus(`CSV error: ${String(err)}`);
@@ -1632,7 +1649,37 @@ export default function App() {
             </div>
 
             <div className="card full-width latest-values-card">
-              <h3>Latest Values</h3>
+              <div className="values-header">
+                <div>
+                  <h3>Latest Values</h3>
+                  <p className="helper-text">Values update only while polling is running.</p>
+                </div>
+                <div className="poll-controls">
+                  <label className="interval-control">
+                    Interval
+                    <select
+                      value={pollInterval}
+                      onChange={(e) => {
+                        const interval = Number(e.target.value);
+                        setPollInterval(interval);
+                        setPollItems((items) => items.map((item) => ({ ...item, intervalMs: interval })));
+                      }}
+                    >
+                      <option value={250}>250 ms</option>
+                      <option value={500}>500 ms</option>
+                      <option value={1000}>1 second</option>
+                      <option value={2000}>2 seconds</option>
+                      <option value={5000}>5 seconds</option>
+                      <option value={10000}>10 seconds</option>
+                    </select>
+                  </label>
+                  {pollRunning ? (
+                    <button className="stop-button" onClick={stopPolling}>Stop Polling</button>
+                  ) : (
+                    <button className="secondary" onClick={startPolling}>Start Polling</button>
+                  )}
+                </div>
+              </div>
               <div className="poll-summary" aria-label="Polling summary">
                 <div className="summary-item"><span>Total</span><strong>{pollSummary.total}</strong></div>
                 <div className="summary-item summary-success"><span>Updated</span><strong>{pollSummary.updated}</strong></div>
@@ -1652,6 +1699,7 @@ export default function App() {
                       <th>Slave</th>
                       <th>Start</th>
                       <th>Count</th>
+                      <th>Interval</th>
                       <th>Latest</th>
                       <th>Scaled</th>
                       <th>Updated</th>
@@ -1676,6 +1724,7 @@ export default function App() {
                           <td className="numeric-cell">{item.address}</td>
                           <td className="numeric-cell">{item.start}</td>
                           <td className="numeric-cell">{item.count}</td>
+                          <td className="interval-cell">{item.intervalMs >= 1000 ? `${item.intervalMs / 1000}s` : `${item.intervalMs}ms`}</td>
                           <td className="latest-cell">{item.lastValues ? item.lastValues.join(", ") : <span className="muted-value">—</span>}</td>
                           <td className="scaled-cell">
                             {scaledValue !== undefined

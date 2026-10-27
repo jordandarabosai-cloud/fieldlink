@@ -257,7 +257,44 @@ button.ghost {
 }
 
 .values-table {
-  min-width: 980px;
+  min-width: 1060px;
+}
+
+.values-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.values-header h3,
+.values-header .helper-text {
+  margin-bottom: 0;
+}
+
+.poll-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.interval-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.interval-control select {
+  padding: 8px 10px;
+}
+
+.stop-button {
+  background: #dc2626;
+  color: white;
 }
 
 .values-table th {
@@ -323,6 +360,12 @@ button.ghost {
 .updated-cell {
   color: #64748b;
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.interval-cell {
+  color: #475569;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -408,6 +451,10 @@ button.ghost {
 
   .poll-summary {
     grid-template-columns: repeat(2, minmax(100px, 1fr));
+  }
+
+  .values-header {
+    flex-direction: column;
   }
 }
 
