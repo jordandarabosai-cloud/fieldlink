@@ -257,7 +257,7 @@ button.ghost {
 }
 
 .values-table {
-  min-width: 1060px;
+  min-width: 1130px;
 }
 
 .values-header {
@@ -397,6 +397,23 @@ button.ghost {
 .status-error {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.action-cell {
+  text-align: right !important;
+}
+
+.table-remove {
+  padding: 6px 9px;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  background: #fff7f7;
+  color: #b91c1c;
+  font-size: 11px;
+}
+
+.table-remove:hover {
+  background: #fee2e2;
 }
 
 .poll-summary {

@@ -418,6 +418,13 @@ export default function App() {
     setPollItems((items) => items.filter((item) => item.id !== id));
   };
 
+  const handleDeleteRegister = (item: PollingItem) => {
+    setPollItems((items) => items.filter((existing) => existing.id !== item.id));
+    if (item.source === "register-map") {
+      setRegisterMap((entries) => entries.filter((entry) => entry.register !== item.start));
+    }
+  };
+
   const handleWriteRegister = async () => {
     try {
       const values = writeValues
@@ -1764,6 +1771,7 @@ export default function App() {
                       <th>Scaled</th>
                       <th>Updated</th>
                       <th>Status</th>
+                      <th aria-label="Actions"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1794,6 +1802,11 @@ export default function App() {
                           <td className="updated-cell">{item.lastUpdated || <span className="muted-value">—</span>}</td>
                           <td>
                             {item.error ? <span className="status-badge status-error" title={item.error}>Error</span> : item.lastValues ? <span className="status-badge status-ok">OK</span> : <span className="status-badge status-waiting">Waiting</span>}
+                          </td>
+                          <td className="action-cell">
+                            <button className="table-remove" onClick={() => handleDeleteRegister(item)} title={`Delete ${item.name}`}>
+                              Delete
+                            </button>
                           </td>
                         </tr>
                       );
