@@ -444,6 +444,74 @@ button.ghost {
   display: none;
 }
 
+.import-card {
+  display: none;
+}
+
+.new-poll-card {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.new-poll-card h3,
+.new-poll-card > .card-actions,
+.write-register-panel {
+  grid-column: 1 / -1;
+}
+
+.new-poll-card > .field-row {
+  display: contents;
+}
+
+.new-poll-card > .field,
+.new-poll-card > .field-row > .field {
+  margin-bottom: 0;
+}
+
+.write-register-panel {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, minmax(130px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+}
+
+.write-register-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.write-register-title .helper-text {
+  margin: 0;
+}
+
+.write-values-field {
+  min-width: 180px;
+}
+
+.page-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (max-width: 768px) {
   .card.wide {
     grid-column: span 1;
@@ -455,6 +523,19 @@ button.ghost {
 
   .values-header {
     flex-direction: column;
+  }
+
+  .new-poll-card {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+
+  .write-register-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .write-register-title,
+  .write-values-field {
+    grid-column: 1 / -1;
   }
 }
 

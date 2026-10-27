@@ -125,9 +125,11 @@ export default function App() {
   const [pollSlaveId, setPollSlaveId] = useState<number>(modbusAddress);
   const [pollItems, setPollItems] = useState<PollingItem[]>([]);
   const [pollRunning, setPollRunning] = useState(false);
+  const [showWriteRegister, setShowWriteRegister] = useState(false);
   const [pollLogs, setPollLogs] = useState<PollingLog[]>([]);
   const [registerMap, setRegisterMap] = useState<RegisterMapEntry[]>([]);
   const [registerMapStatus, setRegisterMapStatus] = useState<string>("");
+  const registerMapInputRef = useRef<HTMLInputElement | null>(null);
   const [discoveryDevices, setDiscoveryDevices] = useState<DiscoveryDevice[]>([]);
   const [discoveryStatus, setDiscoveryStatus] = useState<string>("");
   const [modbusScanStart, setModbusScanStart] = useState<number>(1);
@@ -414,6 +416,28 @@ export default function App() {
 
   const handleRemovePoll = (id: string) => {
     setPollItems((items) => items.filter((item) => item.id !== id));
+  };
+
+  const handleWriteRegister = async () => {
+    try {
+      const values = writeValues
+        .split(/[;,\s]+/)
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value >= 0 && value <= 65535);
+      if (values.length === 0) {
+        setModbusResponse("Enter at least one register value (0-65535).");
+        return;
+      }
+      setModbusResponse("Writing registers...");
+      const result = await window.fieldlink.modbus.writeMultiple({
+        address: modbusAddress,
+        start: registerStart,
+        values,
+      });
+      setModbusResponse(`Wrote ${result.written} register${result.written === 1 ? "" : "s"} starting at ${registerStart}.`);
+    } catch (err) {
+      setModbusResponse(`Write error: ${String(err)}`);
+    }
   };
 
   const startPolling = () => {
@@ -1281,9 +1305,21 @@ export default function App() {
             </button>
           )}
           {activePage === "polling" && (
-            <button className="primary" onClick={exportCsv}>
-              Export CSV
-            </button>
+            <div className="page-actions">
+              <input
+                ref={registerMapInputRef}
+                className="visually-hidden"
+                type="file"
+                accept=".csv"
+                onChange={(e) => handleRegisterMapUpload(e.target.files?.[0] ?? null)}
+              />
+              <button className="ghost" onClick={() => registerMapInputRef.current?.click()}>
+                Import CSV
+              </button>
+              <button className="primary" onClick={exportCsv}>
+                Export CSV
+              </button>
+            </div>
           )}
           {activePage === "snmp" && (
             <button className="primary" onClick={exportSnmpResults}>
@@ -1551,7 +1587,7 @@ export default function App() {
 
         {activePage === "polling" && (
           <section className="grid">
-            <div className="card">
+            <div className="card new-poll-card full-width">
               <h3>New Poll</h3>
               <label className="field">
                 Name
@@ -1591,7 +1627,31 @@ export default function App() {
                 <button className="ghost" onClick={handleAddNextPoll}>
                   Add Next
                 </button>
+                <button className="ghost" onClick={() => setShowWriteRegister((visible) => !visible)}>
+                  {showWriteRegister ? "Hide Write Register" : "Write Register"}
+                </button>
               </div>
+              {showWriteRegister && (
+                <div className="write-register-panel">
+                  <div className="write-register-title">
+                    <strong>Write Register</strong>
+                    <span className="helper-text">Writes the values directly to the connected Modbus device.</span>
+                  </div>
+                  <label className="field">
+                    Slave ID
+                    <input type="number" min={1} max={247} value={modbusAddress} onChange={(e) => setModbusAddress(Number(e.target.value))} />
+                  </label>
+                  <label className="field">
+                    Start Register
+                    <input type="number" min={0} value={registerStart} onChange={(e) => setRegisterStart(Number(e.target.value))} />
+                  </label>
+                  <label className="field write-values-field">
+                    Values
+                    <input value={writeValues} onChange={(e) => setWriteValues(e.target.value)} placeholder="100, 200" />
+                  </label>
+                  <button className="stop-button" onClick={handleWriteRegister}>Write Registers</button>
+                </div>
+              )}
             </div>
 
             <div className="card active-polls-card">
@@ -1631,7 +1691,7 @@ export default function App() {
               </ul>
             </div>
 
-            <div className="card">
+            <div className="card import-card">
               <h3>Register Map (CSV)</h3>
               <p className="helper-text">Upload a CSV with columns like: name, register, scale, unit, notes. Each row becomes a live holding-register poll.</p>
               <label className="field">
