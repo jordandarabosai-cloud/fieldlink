@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "packageManager": "pnpm@10.30.2",
   "scripts": {
-    "dev": "pnpm --filter desktop dev",
-    "build": "pnpm --filter desktop build",
-    "lint": "pnpm --filter desktop lint"
+    "dev": "npm --prefix desktop run dev",
+    "build": "npm --prefix desktop run build",
+    "lint": "npm --prefix desktop run lint"
   }
 }
