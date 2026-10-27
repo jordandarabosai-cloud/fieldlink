@@ -21,6 +21,7 @@ type PollingItem = {
   lastValues?: number[];
   lastUpdated?: string;
   error?: string;
+  source?: "manual" | "register-map";
 };
 
 type PollingLog = {
@@ -498,7 +499,23 @@ export default function App() {
         .filter((entry) => Number.isFinite(entry.register));
 
       setRegisterMap(entries);
-      setRegisterMapStatus(`Loaded ${entries.length} register mappings.`);
+      setPollItems((items) => [
+        ...items.filter((item) => item.source !== "register-map"),
+        ...entries.map((entry) => ({
+          id: `map-${entry.register}-${crypto.randomUUID()}`,
+          name: entry.name,
+          functionType: "holding" as const,
+          address: modbusAddress,
+          start: entry.register,
+          count: 1,
+          intervalMs: Math.max(250, pollInterval),
+          enabled: true,
+          source: "register-map" as const,
+        })),
+      ]);
+      setRegisterMapStatus(
+        `Loaded ${entries.length} register mappings and started polling. Connect RTU or TCP to populate values.`
+      );
     } catch (err) {
       setRegisterMapStatus(`CSV error: ${String(err)}`);
     }
@@ -1587,7 +1604,7 @@ export default function App() {
 
             <div className="card">
               <h3>Register Map (CSV)</h3>
-              <p className="helper-text">Upload a CSV with columns like: name, register, scale, unit, notes.</p>
+              <p className="helper-text">Upload a CSV with columns like: name, register, scale, unit, notes. Each row becomes a live holding-register poll.</p>
               <label className="field">
                 CSV File
                 <input
@@ -1619,6 +1636,7 @@ export default function App() {
                       <th>Latest</th>
                       <th>Scaled</th>
                       <th>Updated</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1646,6 +1664,7 @@ export default function App() {
                               : "-"}
                           </td>
                           <td>{item.lastUpdated || "-"}</td>
+                          <td>{item.error ? <span className="error-text">{item.error}</span> : item.lastValues ? "OK" : "Waiting"}</td>
                         </tr>
                       );
                     })}
