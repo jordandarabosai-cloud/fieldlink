@@ -1577,7 +1577,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="card">
+            <div className="card active-polls-card">
               <div className="card-heading">
                 <div>
                   <h3>Active Polls</h3>
@@ -1631,7 +1631,7 @@ export default function App() {
               )}
             </div>
 
-            <div className="card wide latest-values-card">
+            <div className="card full-width latest-values-card">
               <h3>Latest Values</h3>
               <div className="poll-summary" aria-label="Polling summary">
                 <div className="summary-item"><span>Total</span><strong>{pollSummary.total}</strong></div>
