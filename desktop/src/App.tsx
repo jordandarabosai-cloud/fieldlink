@@ -1066,6 +1066,12 @@ export default function App() {
   };
 
   const sortedLogs = useMemo(() => [...pollLogs].slice(0, 200), [pollLogs]);
+  const pollSummary = useMemo(() => ({
+    total: pollItems.length,
+    updated: pollItems.filter((item) => Boolean(item.lastValues)).length,
+    errors: pollItems.filter((item) => Boolean(item.error)).length,
+    active: pollItems.filter((item) => item.enabled).length,
+  }), [pollItems]);
 
   useEffect(() => {
     refreshPorts();
@@ -1572,7 +1578,13 @@ export default function App() {
             </div>
 
             <div className="card">
-              <h3>Active Polls</h3>
+              <div className="card-heading">
+                <div>
+                  <h3>Active Polls</h3>
+                  <p className="helper-text">Manage the register groups being sampled.</p>
+                </div>
+                <span className="count-badge">{pollSummary.active} active</span>
+              </div>
               {pollItems.length === 0 && <p className="helper-text">No polls yet. Add one to get started.</p>}
               <ul className="poll-list">
                 {pollItems.map((item) => (
@@ -1619,12 +1631,19 @@ export default function App() {
               )}
             </div>
 
-            <div className="card">
+            <div className="card wide latest-values-card">
               <h3>Latest Values</h3>
+              <div className="poll-summary" aria-label="Polling summary">
+                <div className="summary-item"><span>Total</span><strong>{pollSummary.total}</strong></div>
+                <div className="summary-item summary-success"><span>Updated</span><strong>{pollSummary.updated}</strong></div>
+                <div className="summary-item summary-warning"><span>Waiting</span><strong>{pollSummary.total - pollSummary.updated - pollSummary.errors}</strong></div>
+                <div className="summary-item summary-error"><span>Errors</span><strong>{pollSummary.errors}</strong></div>
+              </div>
               {pollItems.length === 0 ? (
                 <p className="helper-text">No polls yet.</p>
               ) : (
-                <table className="log-table">
+                <div className="table-scroll">
+                <table className="log-table values-table">
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -1651,25 +1670,28 @@ export default function App() {
                           : undefined;
                       return (
                         <tr key={item.id}>
-                          <td>{item.name}</td>
-                          <td>{mapEntry ? mapEntry.name : "-"}</td>
-                          <td>{item.functionType}</td>
-                          <td>{item.address}</td>
-                          <td>{item.start}</td>
-                          <td>{item.count}</td>
-                          <td>{item.lastValues ? item.lastValues.join(", ") : "-"}</td>
-                          <td>
+                          <td className="value-name"><strong>{item.name}</strong></td>
+                          <td className="mapped-name">{mapEntry ? mapEntry.name : "-"}</td>
+                          <td><span className="type-badge">{item.functionType}</span></td>
+                          <td className="numeric-cell">{item.address}</td>
+                          <td className="numeric-cell">{item.start}</td>
+                          <td className="numeric-cell">{item.count}</td>
+                          <td className="latest-cell">{item.lastValues ? item.lastValues.join(", ") : <span className="muted-value">—</span>}</td>
+                          <td className="scaled-cell">
                             {scaledValue !== undefined
                               ? `${scaledValue}${mapEntry?.unit ? ` ${mapEntry.unit}` : ""}`
-                              : "-"}
+                              : <span className="muted-value">—</span>}
                           </td>
-                          <td>{item.lastUpdated || "-"}</td>
-                          <td>{item.error ? <span className="error-text">{item.error}</span> : item.lastValues ? "OK" : "Waiting"}</td>
+                          <td className="updated-cell">{item.lastUpdated || <span className="muted-value">—</span>}</td>
+                          <td>
+                            {item.error ? <span className="status-badge status-error" title={item.error}>Error</span> : item.lastValues ? <span className="status-badge status-ok">OK</span> : <span className="status-badge status-waiting">Waiting</span>}
+                          </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </section>
